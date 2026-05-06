@@ -163,6 +163,15 @@ export default function PaywallScreen() {
           </Text>
         </View>
 
+        {/* Privacy note */}
+        <View style={[styles.noteCard, { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE" }]}>
+          <Ionicons name="lock-closed-outline" size={18} color="#3B82F6" />
+          <Text style={[styles.noteText, { color: "#1D4ED8" }]}>
+            <Text style={{ fontFamily: "Inter_700Bold" }}>Your privacy is protected.</Text>
+            {" "}All exercises, sessions, and your child's progress are saved only on this device. We don't use a cloud database or store any personal data on our servers.
+          </Text>
+        </View>
+
         {error && (
           <View style={[styles.errorCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
             <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
