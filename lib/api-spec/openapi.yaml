@@ -1,0 +1,127 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: exercises
+    description: Exercise generation operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /exercises/generate:
+    post:
+      operationId: generateExercises
+      tags: [exercises]
+      summary: Generate exercises from a classwork image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateExercisesRequest"
+      responses:
+        "200":
+          description: Generated exercises
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateExercisesResponse"
+        "500":
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    GenerateExercisesRequest:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          description: Base64-encoded image of the classwork page
+        subject:
+          type: string
+          description: Optional subject hint (e.g. "Math", "Science")
+        grade:
+          type: string
+          description: Optional grade level (e.g. "Grade 3", "Year 5")
+        language:
+          type: string
+          description: Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch")
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE") for curriculum alignment
+        difficulty:
+          type: string
+          enum: [easier, same, harder]
+          description: Difficulty relative to classwork
+      required:
+        - imageBase64
+    Exercise:
+      type: object
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        type:
+          type: string
+          enum: [multiple-choice, short-answer, fill-blank]
+        options:
+          type: array
+          items:
+            type: string
+        answer:
+          type: string
+      required:
+        - id
+        - question
+        - type
+    GenerateExercisesResponse:
+      type: object
+      properties:
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exercise"
+        subject:
+          type: string
+        topic:
+          type: string
+      required:
+        - exercises
+        - subject
+        - topic
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
