@@ -11,12 +11,13 @@ Rules:
 - Mix exercise types: multiple-choice (4 options), short-answer, and fill-in-the-blank
 - Keep language age-appropriate and encouraging
 - Make exercises that genuinely test the same concepts shown
+- IMPORTANT: Write ALL exercise questions, options, and answers in the language specified by the user. If no language is specified, use English.
 - Return ONLY valid JSON, no markdown, no code blocks
 
 Output format (strict JSON):
 {
-  "subject": "detected subject name",
-  "topic": "specific topic/concept covered",
+  "subject": "detected subject name (in the requested language)",
+  "topic": "specific topic/concept covered (in the requested language)",
   "exercises": [
     {
       "id": "ex_1",
@@ -41,10 +42,11 @@ Output format (strict JSON):
 }`;
 
 router.post("/generate", async (req, res) => {
-  const { imageBase64, subject, grade } = req.body as {
+  const { imageBase64, subject, grade, language } = req.body as {
     imageBase64: string;
     subject?: string;
     grade?: string;
+    language?: string;
   };
 
   if (!imageBase64) {
@@ -57,6 +59,7 @@ router.post("/generate", async (req, res) => {
       "Please analyze this classwork page and generate 8 similar practice exercises.",
       subject ? `Subject hint: ${subject}` : "",
       grade ? `Grade level: ${grade}` : "",
+      language ? `Language: Write ALL questions, options, answers, subject name, and topic in ${language}.` : "Language: English",
     ]
       .filter(Boolean)
       .join("\n");

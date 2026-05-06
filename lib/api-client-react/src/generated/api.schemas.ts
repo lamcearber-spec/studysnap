@@ -16,6 +16,8 @@ export interface GenerateExercisesRequest {
   subject?: string;
   /** Optional grade level (e.g. "Grade 3", "Year 5") */
   grade?: string;
+  /** Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch") */
+  language?: string;
 }
 
 export type ExerciseType = (typeof ExerciseType)[keyof typeof ExerciseType];

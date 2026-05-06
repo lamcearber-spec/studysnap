@@ -71,6 +71,9 @@ components:
         grade:
           type: string
           description: Optional grade level (e.g. "Grade 3", "Year 5")
+        language:
+          type: string
+          description: Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch")
       required:
         - imageBase64
     Exercise:

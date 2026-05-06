@@ -30,6 +30,12 @@ export const GenerateExercisesBody = zod.object({
     .string()
     .optional()
     .describe('Optional grade level (e.g. \"Grade 3\", \"Year 5\")'),
+  language: zod
+    .string()
+    .optional()
+    .describe(
+      'Language for exercises (e.g. \"English\", \"German\", \"French\", \"Spanish\", \"Dutch\")',
+    ),
 });
 
 export const GenerateExercisesResponse = zod.object({

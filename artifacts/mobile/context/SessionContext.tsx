@@ -25,6 +25,7 @@ export interface Session {
   subject: string;
   topic: string;
   grade?: string;
+  language?: string;
   exercises: Exercise[];
   createdAt: string;
   totalAnswered: number;

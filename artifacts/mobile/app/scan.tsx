@@ -31,6 +31,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SUBJECTS = ["Math", "Science", "English", "History", "Art", "Other"];
 const GRADES = ["Grade 1-2", "Grade 3-4", "Grade 5-6", "Grade 7-8", "Grade 9-10"];
 
+const LANGUAGES = [
+  { code: "English", label: "English", flag: "🇬🇧" },
+  { code: "German", label: "Deutsch", flag: "🇩🇪" },
+  { code: "French", label: "Français", flag: "🇫🇷" },
+  { code: "Spanish", label: "Español", flag: "🇪🇸" },
+  { code: "Dutch", label: "Nederlands", flag: "🇳🇱" },
+];
+
 function IconButton({
   icon,
   label,
@@ -101,6 +109,7 @@ export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState("English");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const isWeb = Platform.OS === "web";
@@ -161,6 +170,7 @@ export default function ScanScreen() {
           imageBase64: base64,
           subject: selectedSubject ?? undefined,
           grade: selectedGrade ?? undefined,
+          language: selectedLanguage,
         }),
       });
 
@@ -182,6 +192,7 @@ export default function ScanScreen() {
         subject: data.subject,
         topic: data.topic,
         grade: selectedGrade ?? undefined,
+        language: selectedLanguage,
         exercises: data.exercises.map((ex) => ({
           id: ex.id,
           question: ex.question,
@@ -224,6 +235,39 @@ export default function ScanScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Language selector — always visible */}
+        <View>
+          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Language</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+            <View style={styles.chipsRow}>
+              {LANGUAGES.map((lang) => {
+                const isSelected = selectedLanguage === lang.code;
+                return (
+                  <Pressable
+                    key={lang.code}
+                    style={[
+                      styles.langChip,
+                      {
+                        backgroundColor: isSelected ? colors.primary : colors.muted,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedLanguage(lang.code);
+                      Haptics.selectionAsync();
+                    }}
+                  >
+                    <Text style={styles.langFlag}>{lang.flag}</Text>
+                    <Text style={[styles.chipText, { color: isSelected ? "#fff" : colors.foreground }]}>
+                      {lang.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+
         {/* Image area */}
         {!imageUri ? (
           <View style={styles.pickerRow}>
@@ -440,6 +484,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
+  },
+  langChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  langFlag: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   chipText: {
     fontSize: 14,
