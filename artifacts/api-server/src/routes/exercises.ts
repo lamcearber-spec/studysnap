@@ -1,9 +1,10 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { Router } from "express";
+import { getCurriculumContext } from "../curriculum.js";
 
 const router = Router();
 
-const SYSTEM_PROMPT = `You are an expert educational content creator for school children. 
+const SYSTEM_PROMPT = `You are an expert educational content creator for school children.
 Your task is to analyze a classwork page image and generate similar practice exercises.
 
 Rules:
@@ -11,6 +12,7 @@ Rules:
 - Mix exercise types: multiple-choice (4 options), short-answer, and fill-in-the-blank
 - Keep language age-appropriate and encouraging
 - Make exercises that genuinely test the same concepts shown
+- When a national curriculum is specified, align topics, terminology, and question style with that curriculum's standards and typical assessment formats
 - IMPORTANT: Write ALL exercise questions, options, and answers in the language specified by the user. If no language is specified, use English.
 - Return ONLY valid JSON, no markdown, no code blocks
 
@@ -42,12 +44,13 @@ Output format (strict JSON):
 }`;
 
 router.post("/generate", async (req, res) => {
-  const { imageBase64, subject, grade, language, difficulty } = req.body as {
+  const { imageBase64, subject, grade, language, difficulty, countryCode } = req.body as {
     imageBase64: string;
     subject?: string;
     grade?: string;
     language?: string;
     difficulty?: "easier" | "same" | "harder";
+    countryCode?: string;
   };
 
   if (!imageBase64) {
@@ -62,6 +65,16 @@ router.post("/generate", async (req, res) => {
         ? "Difficulty: Make exercises MORE CHALLENGING than the classwork — require deeper understanding, add extension questions, use more complex scenarios."
         : "Difficulty: Match the SAME difficulty level as the classwork.";
 
+  // Look up national curriculum context
+  const curriculum =
+    countryCode && grade ? getCurriculumContext(countryCode, grade) : null;
+
+  const curriculumInstruction = curriculum
+    ? `National Curriculum: ${curriculum.systemName} — ${curriculum.gradeBandLabel}.\n` +
+      `Curriculum guidance for this grade band: ${curriculum.context}\n` +
+      `Use the terminology, topics, and question formats typical of this curriculum system.`
+    : "";
+
   try {
     const userMessage = [
       "Please analyze this classwork page and generate 8 similar practice exercises.",
@@ -69,6 +82,7 @@ router.post("/generate", async (req, res) => {
       grade ? `Grade level: ${grade}` : "",
       language ? `Language: Write ALL questions, options, answers, subject name, and topic in ${language}.` : "Language: English",
       difficultyInstruction,
+      curriculumInstruction,
     ]
       .filter(Boolean)
       .join("\n");

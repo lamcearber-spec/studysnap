@@ -30,6 +30,8 @@ export interface GenerateExercisesRequest {
   grade?: string;
   /** Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch") */
   language?: string;
+  /** ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE") for curriculum alignment */
+  countryCode?: string;
   /** Difficulty relative to classwork */
   difficulty?: GenerateExercisesRequestDifficulty;
 }

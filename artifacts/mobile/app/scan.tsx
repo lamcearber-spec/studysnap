@@ -167,6 +167,7 @@ export default function ScanScreen() {
           grade: selectedGrade,
           language: profile?.language ?? "English",
           difficulty: profile?.difficulty ?? "same",
+          countryCode: profile?.countryCode ?? undefined,
         }),
       });
 

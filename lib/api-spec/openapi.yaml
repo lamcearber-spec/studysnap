@@ -74,6 +74,9 @@ components:
         language:
           type: string
           description: Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch")
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE") for curriculum alignment
         difficulty:
           type: string
           enum: [easier, same, harder]

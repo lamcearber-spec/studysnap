@@ -36,6 +36,12 @@ export const GenerateExercisesBody = zod.object({
     .describe(
       'Language for exercises (e.g. \"English\", \"German\", \"French\", \"Spanish\", \"Dutch\")',
     ),
+  countryCode: zod
+    .string()
+    .optional()
+    .describe(
+      'ISO 3166-1 alpha-2 country code (e.g. \"GB\", \"US\", \"DE\") for curriculum alignment',
+    ),
   difficulty: zod
     .enum(["easier", "same", "harder"])
     .optional()
