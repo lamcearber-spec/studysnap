@@ -18,8 +18,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SessionCard } from "@/components/SessionCard";
+import { useProfile } from "@/context/ProfileContext";
 import { useSession } from "@/context/SessionContext";
 import { useColors } from "@/hooks/useColors";
+import { DIFFICULTIES, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -51,7 +53,7 @@ function ScanButton() {
         style={styles.scanButton}
       >
         <Ionicons name="camera" size={32} color="#fff" />
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.scanButtonTitle}>Scan Classwork</Text>
           <Text style={styles.scanButtonSub}>Take a photo to generate exercises</Text>
         </View>
@@ -64,11 +66,15 @@ function ScanButton() {
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { sessions, isLoading } = useSession();
+  const { profile } = useProfile();
   const isWeb = Platform.OS === "web";
 
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom;
+
+  const difficultyInfo = DIFFICULTIES.find((d) => d.id === profile?.difficulty);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -81,14 +87,58 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>Ready to practice?</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
+              {profile ? `${profile.grade} · ${profile.countryName}` : "Ready to practice?"}
+            </Text>
             <Text style={[styles.title, { color: colors.foreground }]}>StudySnap</Text>
           </View>
-          <View style={[styles.iconBadge, { backgroundColor: colors.primary + "15" }]}>
-            <Ionicons name="school" size={22} color={colors.primary} />
-          </View>
+          <Pressable
+            style={[styles.iconBadge, { backgroundColor: colors.primary + "15" }]}
+            onPress={() => router.push("/settings")}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.primary} />
+          </Pressable>
         </View>
+
+        {/* Profile summary strip */}
+        {profile && (
+          <View style={[styles.profileStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.stripItem}>
+              <Text style={styles.stripEmoji}>{difficultyInfo?.emoji ?? "⚡"}</Text>
+              <Text style={[styles.stripLabel, { color: colors.mutedForeground }]}>
+                {difficultyInfo?.label ?? "Same Level"}
+              </Text>
+            </View>
+            <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.stripItem}>
+              <Text style={styles.stripEmoji}>🌐</Text>
+              <Text style={[styles.stripLabel, { color: colors.mutedForeground }]}>
+                {profile.language}
+              </Text>
+            </View>
+            <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+              <View style={styles.subjectsRow}>
+                {profile.subjects.slice(0, 5).map((id) => (
+                  <View key={id} style={[styles.subjectPill, { backgroundColor: colors.muted }]}>
+                    <Text style={styles.subjectPillEmoji}>{getSubjectEmoji(id)}</Text>
+                    <Text style={[styles.subjectPillText, { color: colors.foreground }]}>
+                      {getSubjectLabel(id)}
+                    </Text>
+                  </View>
+                ))}
+                {profile.subjects.length > 5 && (
+                  <View style={[styles.subjectPill, { backgroundColor: colors.muted }]}>
+                    <Text style={[styles.subjectPillText, { color: colors.mutedForeground }]}>
+                      +{profile.subjects.length - 5}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        )}
 
         {/* Scan CTA */}
         <ScanButton />
@@ -142,14 +192,14 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, gap: 20 },
+  scrollContent: { paddingHorizontal: 20, gap: 16 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   greeting: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginBottom: 2,
   },
@@ -165,6 +215,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  profileStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 12,
+    overflow: "hidden",
+  },
+  stripItem: { alignItems: "center", gap: 2 },
+  stripEmoji: { fontSize: 18 },
+  stripLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  stripDivider: { width: 1, height: 28 },
+  subjectsRow: { flexDirection: "row", gap: 6, alignItems: "center" },
+  subjectPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  subjectPillEmoji: { fontSize: 12 },
+  subjectPillText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   scanButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -183,10 +258,7 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.75)",
     marginTop: 1,
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
+  statsRow: { flexDirection: "row", gap: 10 },
   statCard: {
     flex: 1,
     borderRadius: 14,
@@ -195,31 +267,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
-  statValue: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    marginBottom: 4,
-  },
+  statValue: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  statLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  sectionTitle: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
   emptyState: {
     borderRadius: 20,
     borderWidth: 1,
     padding: 32,
     alignItems: "center",
     gap: 12,
-    marginTop: 20,
+    marginTop: 8,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
+  emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
   emptyText: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",

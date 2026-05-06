@@ -13,7 +13,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -23,21 +22,14 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/context/SessionContext";
+import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
+import { SUBJECTS, getSubjectLabel } from "@/constants/data";
 import { fetch } from "expo/fetch";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const SUBJECTS = ["Math", "Science", "English", "History", "Art", "Other"];
-const GRADES = ["Grade 1-2", "Grade 3-4", "Grade 5-6", "Grade 7-8", "Grade 9-10"];
-
-const LANGUAGES = [
-  { code: "English", label: "English", flag: "🇬🇧" },
-  { code: "German", label: "Deutsch", flag: "🇩🇪" },
-  { code: "French", label: "Français", flag: "🇫🇷" },
-  { code: "Spanish", label: "Español", flag: "🇪🇸" },
-  { code: "Dutch", label: "Nederlands", flag: "🇳🇱" },
-];
+const GRADES = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"];
 
 function IconButton({
   icon,
@@ -105,16 +97,19 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { addSession } = useSession();
+  const { profile } = useProfile();
 
+  // Defaults from profile, overrideable per scan
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const [selectedGrade, setSelectedGrade] = useState<string>(profile?.grade ?? "Grade 5");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom;
+
+  const profileSubjects = profile?.subjects ?? [];
 
   const pickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -169,8 +164,9 @@ export default function ScanScreen() {
         body: JSON.stringify({
           imageBase64: base64,
           subject: selectedSubject ?? undefined,
-          grade: selectedGrade ?? undefined,
-          language: selectedLanguage,
+          grade: selectedGrade,
+          language: profile?.language ?? "English",
+          difficulty: profile?.difficulty ?? "same",
         }),
       });
 
@@ -191,8 +187,8 @@ export default function ScanScreen() {
         imageUri,
         subject: data.subject,
         topic: data.topic,
-        grade: selectedGrade ?? undefined,
-        language: selectedLanguage,
+        grade: selectedGrade,
+        language: profile?.language,
         exercises: data.exercises.map((ex) => ({
           id: ex.id,
           question: ex.question,
@@ -235,38 +231,22 @@ export default function ScanScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Language selector — always visible */}
-        <View>
-          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Language</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-            <View style={styles.chipsRow}>
-              {LANGUAGES.map((lang) => {
-                const isSelected = selectedLanguage === lang.code;
-                return (
-                  <Pressable
-                    key={lang.code}
-                    style={[
-                      styles.langChip,
-                      {
-                        backgroundColor: isSelected ? colors.primary : colors.muted,
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedLanguage(lang.code);
-                      Haptics.selectionAsync();
-                    }}
-                  >
-                    <Text style={styles.langFlag}>{lang.flag}</Text>
-                    <Text style={[styles.chipText, { color: isSelected ? "#fff" : colors.foreground }]}>
-                      {lang.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
+        {/* Profile context strip */}
+        {profile && (
+          <View style={[styles.contextStrip, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Text style={[styles.contextText, { color: colors.mutedForeground }]}>
+              🌐 {profile.language}
+            </Text>
+            <View style={[styles.contextDot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.contextText, { color: colors.mutedForeground }]}>
+              {profile.difficulty === "easier" ? "😊 Easier" : profile.difficulty === "harder" ? "🔥 Harder" : "⚡ Same level"}
+            </Text>
+            <View style={[styles.contextDot, { backgroundColor: colors.border }]} />
+            <Text style={[styles.contextText, { color: colors.mutedForeground }]}>
+              {profile.grade}
+            </Text>
+          </View>
+        )}
 
         {/* Image area */}
         {!imageUri ? (
@@ -308,28 +288,33 @@ export default function ScanScreen() {
 
         {imageUri && (
           <>
-            {/* Subject selector */}
+            {/* Subject selector — profile subjects first */}
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Subject (optional)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
                 <View style={styles.chipsRow}>
-                  {SUBJECTS.map((s) => (
+                  {/* Profile subjects first, then rest */}
+                  {[
+                    ...SUBJECTS.filter((s) => profileSubjects.includes(s.id)),
+                    ...SUBJECTS.filter((s) => !profileSubjects.includes(s.id)),
+                  ].map((s) => (
                     <Pressable
-                      key={s}
+                      key={s.id}
                       style={[
                         styles.chip,
                         {
-                          backgroundColor: selectedSubject === s ? colors.primary : colors.muted,
-                          borderColor: selectedSubject === s ? colors.primary : colors.border,
+                          backgroundColor: selectedSubject === s.id ? colors.primary : colors.muted,
+                          borderColor: selectedSubject === s.id ? colors.primary : colors.border,
                         },
                       ]}
                       onPress={() => {
-                        setSelectedSubject(selectedSubject === s ? null : s);
+                        setSelectedSubject(selectedSubject === s.id ? null : s.id);
                         Haptics.selectionAsync();
                       }}
                     >
-                      <Text style={[styles.chipText, { color: selectedSubject === s ? "#fff" : colors.foreground }]}>
-                        {s}
+                      <Text style={styles.chipEmoji}>{s.emoji}</Text>
+                      <Text style={[styles.chipText, { color: selectedSubject === s.id ? "#fff" : colors.foreground }]}>
+                        {s.label}
                       </Text>
                     </Pressable>
                   ))}
@@ -337,9 +322,9 @@ export default function ScanScreen() {
               </ScrollView>
             </View>
 
-            {/* Grade selector */}
+            {/* Grade override */}
             <View>
-              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Grade (optional)</Text>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Grade</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
                 <View style={styles.chipsRow}>
                   {GRADES.map((g) => (
@@ -353,7 +338,7 @@ export default function ScanScreen() {
                         },
                       ]}
                       onPress={() => {
-                        setSelectedGrade(selectedGrade === g ? null : g);
+                        setSelectedGrade(g);
                         Haptics.selectionAsync();
                       }}
                     >
@@ -414,6 +399,17 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 20,
   },
+  contextStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  contextText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  contextDot: { width: 4, height: 4, borderRadius: 2 },
   pickerRow: {
     flexDirection: "row",
     gap: 14,
@@ -480,24 +476,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-  },
-  langChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
   },
-  langFlag: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
+  chipEmoji: { fontSize: 14 },
   chipText: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",

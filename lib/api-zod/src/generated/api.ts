@@ -36,6 +36,10 @@ export const GenerateExercisesBody = zod.object({
     .describe(
       'Language for exercises (e.g. \"English\", \"German\", \"French\", \"Spanish\", \"Dutch\")',
     ),
+  difficulty: zod
+    .enum(["easier", "same", "harder"])
+    .optional()
+    .describe("Difficulty relative to classwork"),
 });
 
 export const GenerateExercisesResponse = zod.object({

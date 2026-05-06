@@ -9,6 +9,18 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * Difficulty relative to classwork
+ */
+export type GenerateExercisesRequestDifficulty =
+  (typeof GenerateExercisesRequestDifficulty)[keyof typeof GenerateExercisesRequestDifficulty];
+
+export const GenerateExercisesRequestDifficulty = {
+  easier: "easier",
+  same: "same",
+  harder: "harder",
+} as const;
+
 export interface GenerateExercisesRequest {
   /** Base64-encoded image of the classwork page */
   imageBase64: string;
@@ -18,6 +30,8 @@ export interface GenerateExercisesRequest {
   grade?: string;
   /** Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch") */
   language?: string;
+  /** Difficulty relative to classwork */
+  difficulty?: GenerateExercisesRequestDifficulty;
 }
 
 export type ExerciseType = (typeof ExerciseType)[keyof typeof ExerciseType];

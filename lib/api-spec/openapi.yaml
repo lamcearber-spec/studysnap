@@ -74,6 +74,10 @@ components:
         language:
           type: string
           description: Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch")
+        difficulty:
+          type: string
+          enum: [easier, same, harder]
+          description: Difficulty relative to classwork
       required:
         - imageBase64
     Exercise:

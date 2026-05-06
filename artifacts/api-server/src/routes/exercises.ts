@@ -42,11 +42,12 @@ Output format (strict JSON):
 }`;
 
 router.post("/generate", async (req, res) => {
-  const { imageBase64, subject, grade, language } = req.body as {
+  const { imageBase64, subject, grade, language, difficulty } = req.body as {
     imageBase64: string;
     subject?: string;
     grade?: string;
     language?: string;
+    difficulty?: "easier" | "same" | "harder";
   };
 
   if (!imageBase64) {
@@ -54,12 +55,20 @@ router.post("/generate", async (req, res) => {
     return;
   }
 
+  const difficultyInstruction =
+    difficulty === "easier"
+      ? "Difficulty: Make exercises EASIER than the classwork — add helpful hints, use simpler vocabulary, break questions into smaller steps."
+      : difficulty === "harder"
+        ? "Difficulty: Make exercises MORE CHALLENGING than the classwork — require deeper understanding, add extension questions, use more complex scenarios."
+        : "Difficulty: Match the SAME difficulty level as the classwork.";
+
   try {
     const userMessage = [
       "Please analyze this classwork page and generate 8 similar practice exercises.",
       subject ? `Subject hint: ${subject}` : "",
       grade ? `Grade level: ${grade}` : "",
       language ? `Language: Write ALL questions, options, answers, subject name, and topic in ${language}.` : "Language: English",
+      difficultyInstruction,
     ]
       .filter(Boolean)
       .join("\n");
