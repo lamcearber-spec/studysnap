@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import type { Difficulty } from "@/constants/data";
 
 export interface UserProfile {
+  name: string;
   countryCode: string;
   countryName: string;
   language: string;

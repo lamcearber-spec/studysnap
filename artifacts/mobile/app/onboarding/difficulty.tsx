@@ -22,6 +22,7 @@ export default function OnboardingDifficulty() {
   const router = useRouter();
   const { saveProfile } = useProfile();
   const params = useLocalSearchParams<{
+    name: string;
     countryCode: string;
     countryName: string;
     language: string;
@@ -40,6 +41,7 @@ export default function OnboardingDifficulty() {
     setIsSaving(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await saveProfile({
+      name: params.name ?? "",
       countryCode: params.countryCode,
       countryName: params.countryName,
       language: params.language,

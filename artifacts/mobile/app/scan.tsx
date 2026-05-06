@@ -23,6 +23,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/context/SessionContext";
 import { useProfile } from "@/context/ProfileContext";
+import { maybeRequestReview } from "@/hooks/useAppReview";
 import { useColors } from "@/hooks/useColors";
 import { SUBJECTS, getSubjectLabel } from "@/constants/data";
 import { fetch } from "expo/fetch";
@@ -206,6 +207,8 @@ export default function ScanScreen() {
 
       await addSession(session);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Check if we should prompt for an app store review (after 10 or 20 sessions)
+      maybeRequestReview(sessions.length + 1);
       router.replace(`/exercises/${sessionId}`);
     } catch (err) {
       console.error(err);

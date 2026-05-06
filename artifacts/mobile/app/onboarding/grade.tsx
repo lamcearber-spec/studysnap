@@ -19,6 +19,7 @@ export default function OnboardingGrade() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
+    name: string;
     countryCode: string;
     countryName: string;
     language: string;
@@ -46,7 +47,9 @@ export default function OnboardingGrade() {
       >
         <Text style={styles.stepLabel}>Step 2 of 4</Text>
         <Text style={styles.headerEmoji}>🎒</Text>
-        <Text style={styles.headerTitle}>What grade are you in?</Text>
+        <Text style={styles.headerTitle}>
+          What grade are you in{params.name ? `, ${params.name}` : ""}?
+        </Text>
         <Text style={styles.headerSub}>
           We'll adjust exercises to your level
         </Text>

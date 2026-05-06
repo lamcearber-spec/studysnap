@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +32,9 @@ export default function SettingsScreen() {
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 67 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
+  const nameRef = useRef<TextInput>(null);
 
+  const [name, setName] = useState<string>(profile?.name ?? "");
   const [subjects, setSubjects] = useState<string[]>(profile?.subjects ?? []);
   const [difficulty, setDifficulty] = useState<Difficulty>(profile?.difficulty ?? "same");
   const [grade, setGrade] = useState<string>(profile?.grade ?? "");
@@ -58,11 +61,16 @@ export default function SettingsScreen() {
   };
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert("Name required", "Please enter the student's name.");
+      nameRef.current?.focus();
+      return;
+    }
     if (subjects.length === 0) {
       Alert.alert("No subjects", "Please select at least one subject.");
       return;
     }
-    await updateProfile({ subjects, difficulty, grade });
+    await updateProfile({ name: name.trim(), subjects, difficulty, grade });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
@@ -116,7 +124,7 @@ export default function SettingsScreen() {
               style={styles.profileGradient}
             >
               <Text style={styles.profileFlag}>{country?.flag ?? "🌍"}</Text>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.profileName, { color: colors.foreground }]}>
                   {profile.countryName}
                 </Text>
@@ -127,6 +135,39 @@ export default function SettingsScreen() {
             </LinearGradient>
           </View>
         )}
+
+        {/* Student name */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Student Name</Text>
+          <Pressable
+            style={[
+              styles.nameInputWrap,
+              {
+                backgroundColor: colors.card,
+                borderColor: name.trim() ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => nameRef.current?.focus()}
+          >
+            <Ionicons
+              name="person-outline"
+              size={18}
+              color={name.trim() ? colors.primary : colors.mutedForeground}
+            />
+            <TextInput
+              ref={nameRef}
+              value={name}
+              onChangeText={(v) => { setName(v); setIsDirty(true); }}
+              placeholder="Student's name"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.nameInput, { color: colors.foreground }]}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+              maxLength={30}
+            />
+          </Pressable>
+        </View>
 
         {/* Grade */}
         <View style={styles.section}>
@@ -319,6 +360,21 @@ const styles = StyleSheet.create({
   },
   subjectEmoji: { fontSize: 26 },
   subjectLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  nameInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    padding: 0,
+  },
   resetBtn: {
     flexDirection: "row",
     alignItems: "center",

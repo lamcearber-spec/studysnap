@@ -27,7 +27,8 @@ An iPad/iOS app for elementary and middle school kids to photograph completed cl
 - `artifacts/api-server/src/routes/exercises.ts` — exercise generation route
 - `artifacts/mobile/app/onboarding/` — 4-step onboarding (country → grade → subjects → difficulty)
 - `artifacts/mobile/app/paywall.tsx` — subscription paywall screen
-- `artifacts/mobile/app/settings.tsx` — editable profile settings
+- `artifacts/mobile/app/settings.tsx` — editable profile settings (name, grade, subjects, difficulty)
+- `artifacts/mobile/hooks/useAppReview.ts` — app store review prompt logic (10/20 session thresholds)
 - `artifacts/mobile/lib/revenuecat.tsx` — RevenueCat init, SubscriptionProvider, useSubscription hook
 - `artifacts/mobile/context/ProfileContext.tsx` — AsyncStorage-backed user profile
 - `artifacts/mobile/context/SessionContext.tsx` — AsyncStorage-backed session state
@@ -45,12 +46,13 @@ An iPad/iOS app for elementary and middle school kids to photograph completed cl
 
 ## Product
 
-- **Onboarding (4 steps)**: Country (sets language) → Grade 1-8 → Subjects → Difficulty
+- **Onboarding (4 steps)**: Name + Country (sets language) → Grade 1-8 → Subjects → Difficulty
 - **Paywall**: $4.99/month via RevenueCat, shown after onboarding and enforced on every launch
-- Kids scan classwork → AI generates 8 exercises in their language at chosen difficulty
+- Kids scan classwork → AI generates 8 exercises aligned to their national curriculum, language, and grade
 - Interactive exercise answering with instant feedback
-- Session history with progress tracking
-- Settings screen to edit grade, subjects, difficulty; reset to redo onboarding
+- Session history with progress tracking — parent-reviewable under the student's profile name
+- Settings screen to edit name, grade, subjects, difficulty; reset to redo onboarding
+- **App Store review prompt**: after session 10, then again after session 20 (max 2 prompts ever)
 
 ## Gotchas
 

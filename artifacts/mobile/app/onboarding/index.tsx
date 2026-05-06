@@ -1,13 +1,16 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,35 +25,43 @@ export default function OnboardingCountry() {
   const top = isWeb ? 60 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
 
+  const [name, setName] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
+  const trimmedName = name.trim();
   const selectedCountry = COUNTRIES.find((c) => c.code === selected);
+  const canContinue = trimmedName.length > 0 && !!selectedCountry;
 
   const handleContinue = () => {
-    if (!selectedCountry) return;
+    if (!canContinue) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/onboarding/grade",
       params: {
-        countryCode: selectedCountry.code,
-        countryName: selectedCountry.name,
-        language: selectedCountry.language,
+        name: trimmedName,
+        countryCode: selectedCountry!.code,
+        countryName: selectedCountry!.name,
+        language: selectedCountry!.language,
       },
     });
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       {/* Header */}
       <LinearGradient
         colors={[colors.primary, "#6366F1"]}
         style={[styles.header, { paddingTop: top + 20 }]}
       >
         <Text style={styles.stepLabel}>Step 1 of 4</Text>
-        <Text style={styles.headerEmoji}>🌍</Text>
-        <Text style={styles.headerTitle}>Where are you from?</Text>
+        <Text style={styles.headerEmoji}>👋</Text>
+        <Text style={styles.headerTitle}>Let's get started!</Text>
         <Text style={styles.headerSub}>
-          We'll set the language automatically for your country
+          Tell us your name and where you're from
         </Text>
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((i) => (
@@ -62,11 +73,58 @@ export default function OnboardingCountry() {
         </View>
       </LinearGradient>
 
-      {/* Country grid */}
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottom + 100 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* Name input */}
+        <View style={styles.nameSection}>
+          <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+            What's your name?
+          </Text>
+          <Pressable
+            style={[
+              styles.nameInputWrap,
+              {
+                backgroundColor: colors.card,
+                borderColor: name.trim() ? colors.primary : colors.border,
+              },
+            ]}
+            onPress={() => inputRef.current?.focus()}
+          >
+            <Ionicons
+              name="person-outline"
+              size={20}
+              color={name.trim() ? colors.primary : colors.mutedForeground}
+            />
+            <TextInput
+              ref={inputRef}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Emma"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.nameInput, { color: colors.foreground }]}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+              maxLength={30}
+            />
+            {name.trim().length > 0 && (
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+            )}
+          </Pressable>
+        </View>
+
+        {/* Country heading */}
+        <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+          Where are you from?
+        </Text>
+        <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
+          We'll set the language automatically
+        </Text>
+
+        {/* Country grid */}
         <View style={styles.grid}>
           {COUNTRIES.map((c) => {
             const isSelected = selected === c.code;
@@ -108,22 +166,26 @@ export default function OnboardingCountry() {
       <View style={[styles.footer, { paddingBottom: bottom + 16, backgroundColor: colors.background }]}>
         <Pressable
           onPress={handleContinue}
-          disabled={!selected}
+          disabled={!canContinue}
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
           <LinearGradient
-            colors={selected ? [colors.primary, "#6366F1"] : ["#9CA3AF", "#6B7280"]}
+            colors={canContinue ? [colors.primary, "#6366F1"] : ["#9CA3AF", "#6B7280"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.continueBtn}
           >
             <Text style={styles.continueBtnText}>
-              {selected ? `Continue with ${selectedCountry?.language}` : "Select your country"}
+              {canContinue
+                ? `Continue, ${trimmedName} · ${selectedCountry?.language}`
+                : !trimmedName
+                  ? "Enter your name to continue"
+                  : "Select your country"}
             </Text>
           </LinearGradient>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -163,7 +225,34 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   dotActive: { backgroundColor: "#fff" },
   dotInactive: { backgroundColor: "rgba(255,255,255,0.35)" },
-  scrollContent: { padding: 16 },
+  scrollContent: { padding: 16, gap: 14 },
+  nameSection: { gap: 8 },
+  sectionLabel: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 2,
+  },
+  sectionSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: -8,
+    marginBottom: 2,
+  },
+  nameInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    padding: 0,
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -19,6 +19,7 @@ export default function OnboardingSubjects() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{
+    name: string;
     countryCode: string;
     countryName: string;
     language: string;

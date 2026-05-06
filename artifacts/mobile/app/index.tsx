@@ -63,6 +63,14 @@ function ScanButton() {
   );
 }
 
+function getGreeting(name: string): string {
+  const hour = new Date().getHours();
+  const first = name.split(" ")[0];
+  if (hour < 12) return `Good morning, ${first}! ☀️`;
+  if (hour < 17) return `Good afternoon, ${first}! 👋`;
+  return `Good evening, ${first}! 🌙`;
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -75,6 +83,9 @@ export default function HomeScreen() {
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const difficultyInfo = DIFFICULTIES.find((d) => d.id === profile?.difficulty);
+  const totalCorrect = sessions.reduce((sum, s) => sum + s.totalCorrect, 0);
+  const totalExercises = sessions.reduce((sum, s) => sum + s.exercises.length, 0);
+  const accuracy = totalExercises > 0 ? Math.round((totalCorrect / totalExercises) * 100) : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -88,10 +99,21 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
-              {profile ? `${profile.grade} · ${profile.countryName}` : "Ready to practice?"}
-            </Text>
-            <Text style={[styles.title, { color: colors.foreground }]}>StudySnap</Text>
+            {profile?.name ? (
+              <>
+                <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
+                  {getGreeting(profile.name)}
+                </Text>
+                <Text style={[styles.title, { color: colors.foreground }]}>StudySnap</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
+                  {profile ? `${profile.grade} · ${profile.countryName}` : "Ready to practice?"}
+                </Text>
+                <Text style={[styles.title, { color: colors.foreground }]}>StudySnap</Text>
+              </>
+            )}
           </View>
           <Pressable
             style={[styles.iconBadge, { backgroundColor: colors.primary + "15" }]}
@@ -151,16 +173,14 @@ export default function HomeScreen() {
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Sessions</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.statValue, { color: colors.accent }]}>
-                {sessions.reduce((sum, s) => sum + s.exercises.length, 0)}
-              </Text>
+              <Text style={[styles.statValue, { color: colors.accent }]}>{totalExercises}</Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Exercises</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.statValue, { color: colors.success }]}>
-                {sessions.reduce((sum, s) => sum + s.totalCorrect, 0)}
+                {accuracy !== null ? `${accuracy}%` : "—"}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Correct</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Accuracy</Text>
             </View>
           </View>
         )}
