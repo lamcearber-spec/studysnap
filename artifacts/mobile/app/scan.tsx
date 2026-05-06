@@ -1,0 +1,461 @@
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSession } from "@/context/SessionContext";
+import { useColors } from "@/hooks/useColors";
+import { fetch } from "expo/fetch";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const SUBJECTS = ["Math", "Science", "English", "History", "Art", "Other"];
+const GRADES = ["Grade 1-2", "Grade 3-4", "Grade 5-6", "Grade 7-8", "Grade 9-10"];
+
+function IconButton({
+  icon,
+  label,
+  onPress,
+  color,
+  disabled,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  color: string;
+  disabled?: boolean;
+}) {
+  const colors = useColors();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: disabled ? 0.5 : 1,
+  }));
+
+  return (
+    <AnimatedPressable
+      style={animatedStyle}
+      onPressIn={() => { scale.value = withSpring(0.95); }}
+      onPressOut={() => { scale.value = withSpring(1); }}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <View style={[styles.iconButton, { backgroundColor: color + "15" }]}>
+        <Ionicons name={icon as any} size={28} color={color} />
+        <Text style={[styles.iconButtonLabel, { color: colors.foreground }]}>{label}</Text>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function convertImageToBase64(uri: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (Platform.OS === "web") {
+      fetch(uri)
+        .then((res) => res.blob())
+        .then((blob) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        })
+        .catch(reject);
+    } else {
+      import("expo-file-system").then(({ readAsStringAsync, EncodingType }) => {
+        readAsStringAsync(uri, { encoding: EncodingType.Base64 })
+          .then(resolve)
+          .catch(reject);
+      });
+    }
+  });
+}
+
+export default function ScanScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { addSession } = useSession();
+
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const isWeb = Platform.OS === "web";
+  const topPad = isWeb ? 67 : insets.top;
+  const bottomPad = isWeb ? 34 : insets.bottom;
+
+  const pickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Camera Access", "Please allow camera access to take photos of your classwork.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [3, 4],
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const pickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Photo Library", "Please allow photo library access to select your classwork photos.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: [3, 4],
+    });
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!imageUri) return;
+    setIsGenerating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const base64 = await convertImageToBase64(imageUri);
+
+      const domain = process.env.EXPO_PUBLIC_DOMAIN;
+      const url = domain ? `https://${domain}/api/exercises/generate` : "/api/exercises/generate";
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: base64,
+          subject: selectedSubject ?? undefined,
+          grade: selectedGrade ?? undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Generation failed");
+      }
+
+      const data = await response.json() as {
+        exercises: Array<{ id: string; question: string; type: string; options?: string[]; answer?: string }>;
+        subject: string;
+        topic: string;
+      };
+
+      const sessionId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+
+      const session = {
+        id: sessionId,
+        imageUri,
+        subject: data.subject,
+        topic: data.topic,
+        grade: selectedGrade ?? undefined,
+        exercises: data.exercises.map((ex) => ({
+          id: ex.id,
+          question: ex.question,
+          type: ex.type as "multiple-choice" | "short-answer" | "fill-blank",
+          options: ex.options,
+          answer: ex.answer,
+          userAnswer: undefined,
+          isCorrect: undefined,
+        })),
+        createdAt: new Date().toISOString(),
+        totalAnswered: 0,
+        totalCorrect: 0,
+      };
+
+      await addSession(session);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace(`/exercises/${sessionId}`);
+    } catch (err) {
+      console.error(err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Oops!", "Something went wrong generating your exercises. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={[styles.navBar, { paddingTop: topPad + 8, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+        </Pressable>
+        <Text style={[styles.navTitle, { color: colors.foreground }]}>New Session</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 16 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Image area */}
+        {!imageUri ? (
+          <View style={styles.pickerRow}>
+            <IconButton
+              icon="camera"
+              label="Camera"
+              color={colors.primary}
+              onPress={pickFromCamera}
+            />
+            <IconButton
+              icon="images"
+              label="Gallery"
+              color={colors.accent}
+              onPress={pickFromGallery}
+            />
+          </View>
+        ) : (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: imageUri }} style={styles.previewImage} contentFit="cover" />
+            <Pressable
+              style={[styles.retakeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setImageUri(null)}
+            >
+              <Ionicons name="refresh" size={16} color={colors.foreground} />
+              <Text style={[styles.retakeText, { color: colors.foreground }]}>Retake</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!imageUri && (
+          <View style={[styles.hint, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
+              Take a clear photo of a completed classwork or worksheet page. Make sure the text is readable.
+            </Text>
+          </View>
+        )}
+
+        {imageUri && (
+          <>
+            {/* Subject selector */}
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Subject (optional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                <View style={styles.chipsRow}>
+                  {SUBJECTS.map((s) => (
+                    <Pressable
+                      key={s}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: selectedSubject === s ? colors.primary : colors.muted,
+                          borderColor: selectedSubject === s ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedSubject(selectedSubject === s ? null : s);
+                        Haptics.selectionAsync();
+                      }}
+                    >
+                      <Text style={[styles.chipText, { color: selectedSubject === s ? "#fff" : colors.foreground }]}>
+                        {s}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Grade selector */}
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Grade (optional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                <View style={styles.chipsRow}>
+                  {GRADES.map((g) => (
+                    <Pressable
+                      key={g}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: selectedGrade === g ? colors.accent : colors.muted,
+                          borderColor: selectedGrade === g ? colors.accent : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedGrade(selectedGrade === g ? null : g);
+                        Haptics.selectionAsync();
+                      }}
+                    >
+                      <Text style={[styles.chipText, { color: selectedGrade === g ? "#fff" : colors.foreground }]}>
+                        {g}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Generate button */}
+            <Pressable
+              onPress={handleGenerate}
+              disabled={isGenerating}
+              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+            >
+              <LinearGradient
+                colors={isGenerating ? ["#9CA3AF", "#6B7280"] : [colors.primary, "#6366F1"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.generateButton}
+              >
+                {isGenerating ? (
+                  <>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.generateButtonText}>Generating exercises...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={20} color="#fff" />
+                    <Text style={styles.generateButtonText}>Generate Exercises</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  navBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  backBtn: { width: 40, height: 40, justifyContent: "center" },
+  navTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
+  scrollContent: {
+    padding: 20,
+    gap: 20,
+  },
+  pickerRow: {
+    flexDirection: "row",
+    gap: 14,
+    justifyContent: "center",
+  },
+  iconButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 28,
+    borderRadius: 20,
+    gap: 8,
+    minWidth: 130,
+  },
+  iconButtonLabel: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+  },
+  hint: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  hintText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    flex: 1,
+  },
+  imageContainer: {
+    alignItems: "center",
+    gap: 12,
+  },
+  previewImage: {
+    width: "100%",
+    height: 280,
+    borderRadius: 16,
+  },
+  retakeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  retakeText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 10,
+  },
+  chipsScroll: { marginHorizontal: -20 },
+  chipsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  chipText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  generateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 18,
+    borderRadius: 18,
+  },
+  generateButtonText: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+  },
+});

@@ -14,3 +14,34 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Generate exercises from a classwork image
+ */
+export const GenerateExercisesBody = zod.object({
+  imageBase64: zod
+    .string()
+    .describe("Base64-encoded image of the classwork page"),
+  subject: zod
+    .string()
+    .optional()
+    .describe('Optional subject hint (e.g. \"Math\", \"Science\")'),
+  grade: zod
+    .string()
+    .optional()
+    .describe('Optional grade level (e.g. \"Grade 3\", \"Year 5\")'),
+});
+
+export const GenerateExercisesResponse = zod.object({
+  exercises: zod.array(
+    zod.object({
+      id: zod.string(),
+      question: zod.string(),
+      type: zod.enum(["multiple-choice", "short-answer", "fill-blank"]),
+      options: zod.array(zod.string()).optional(),
+      answer: zod.string().optional(),
+    }),
+  ),
+  subject: zod.string(),
+  topic: zod.string(),
+});

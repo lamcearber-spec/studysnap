@@ -8,3 +8,38 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface GenerateExercisesRequest {
+  /** Base64-encoded image of the classwork page */
+  imageBase64: string;
+  /** Optional subject hint (e.g. "Math", "Science") */
+  subject?: string;
+  /** Optional grade level (e.g. "Grade 3", "Year 5") */
+  grade?: string;
+}
+
+export type ExerciseType = (typeof ExerciseType)[keyof typeof ExerciseType];
+
+export const ExerciseType = {
+  "multiple-choice": "multiple-choice",
+  "short-answer": "short-answer",
+  "fill-blank": "fill-blank",
+} as const;
+
+export interface Exercise {
+  id: string;
+  question: string;
+  type: ExerciseType;
+  options?: string[];
+  answer?: string;
+}
+
+export interface GenerateExercisesResponse {
+  exercises: Exercise[];
+  subject: string;
+  topic: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
