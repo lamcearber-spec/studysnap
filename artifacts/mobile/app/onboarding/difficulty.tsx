@@ -45,7 +45,7 @@ export default function OnboardingDifficulty() {
         step: "Schritt 4 von 4",
         title: "Wie schwer soll es sein?",
         subtitle: "Wie schwierig sollen die Übungen im Vergleich zu deinen Schulaufgaben sein?",
-        ritual: "Seite fotografieren → wir machen 8 Übungsfragen → dein Kind löst sie → du markierst ✓ oder ✗.",
+        ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
         emptyCta: "Wähle einen Schwierigkeitsgrad",
         selectedCta: "Los geht's!",
       }
@@ -53,7 +53,7 @@ export default function OnboardingDifficulty() {
         step: "Step 4 of 4",
         title: "How hard should it be?",
         subtitle: "How difficult should the practice exercises be compared to your classwork?",
-        ritual: "Snap a page → we make 8 practice questions → your child works it out → you mark ✓ or ✗.",
+        ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
         emptyCta: "Select a difficulty level",
         selectedCta: "Let's go!",
       };

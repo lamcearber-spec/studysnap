@@ -55,7 +55,7 @@ function getCopy(language?: string) {
     return {
       title: "Wähle deinen StudySnap-Plan",
       subtitle: "Ein Scan pro Tag bleibt kostenlos. Bildreiche Übungen sind im Abo monatlich begrenzt.",
-      ritual: "Seite fotografieren → wir machen 8 Übungsfragen → dein Kind löst sie → du markierst ✓ oder ✗.",
+      ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
       monthly: "Monatlich",
       annual: "Jährlich",
       recommended: "Empfohlen",
@@ -73,7 +73,7 @@ function getCopy(language?: string) {
   return {
     title: "Choose your StudySnap plan",
     subtitle: "One scan per day stays free. Image-rich practice is capped monthly by plan.",
-    ritual: "Snap a page → we make 8 practice questions → your child works it out → you mark ✓ or ✗.",
+    ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
     monthly: "Monthly",
     annual: "Annual",
     recommended: "Recommended",
