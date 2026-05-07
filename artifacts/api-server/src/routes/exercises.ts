@@ -13,7 +13,11 @@ import { getUsageQuota, reserveImageQuota, type UsageQuota } from "../db/client.
 const router = Router();
 
 const SYSTEM_PROMPT = `You are an expert educational content designer for school children grades 1-8.
-You will see a photo of a worksheet page. Generate exactly 8 practice exercises that build the same skill.
+You will see a photo of a worksheet page or a tightly-cropped single exercise.
+Identify every distinct exercise in the input image. Count them.
+Generate exactly that many similar practice variations - one-to-one correspondence with the originals.
+Treat full worksheet pages and cropped single exercises identically: count what you see, generate that many.
+Each variation tests the same skill as its original counterpart but uses different content (different numbers, objects, names, etc.).
 
 For each exercise, decide whether it benefits from a visual aid:
 - Counting / sorting / set-comparison questions: REQUIRES visual
@@ -88,7 +92,7 @@ const visionOutputSchema = z.object({
   subject: z.string().min(1),
   topic: z.string().min(1),
   sourceImages: z.array(sourceImageSchema),
-  exercises: z.array(visionExerciseSchema).length(8),
+  exercises: z.array(visionExerciseSchema),
 });
 
 const falImageSchema = z.object({
@@ -149,8 +153,6 @@ const geminiResponseSchema: Schema = {
     },
     exercises: {
       type: Type.ARRAY,
-      minItems: "8",
-      maxItems: "8",
       items: {
         type: Type.OBJECT,
         required: ["id", "type", "question", "answer", "visual"],
@@ -205,7 +207,7 @@ function getCurriculumInstruction(countryCode?: string, grade?: string) {
 
 function buildUserMessage(input: GenerateRequest) {
   return [
-    "Please analyze this classwork page and generate 8 similar practice exercises.",
+    "Please analyze this classwork page, count every distinct exercise you see, and generate one similar practice variation for each original exercise.",
     input.subject ? `Subject hint: ${input.subject}` : "",
     input.grade ? `Grade level: ${input.grade}` : "",
     input.language
@@ -258,6 +260,7 @@ async function generateVisionOutput(input: GenerateRequest) {
       systemInstruction: SYSTEM_PROMPT,
       responseMimeType: "application/json",
       responseSchema: geminiResponseSchema,
+      maxOutputTokens: 6144,
     },
   });
 

@@ -79,7 +79,7 @@ function ScanCTA() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.ctaTitle}>Scan classwork</Text>
-          <Text style={styles.ctaSub}>Snap a page · we'll make 8 questions</Text>
+          <Text style={styles.ctaSub}>Snap a page · we'll make matching practice.</Text>
         </View>
         <Ionicons name="arrow-forward" size={22} color="rgba(255,255,255,0.85)" />
       </AnimatedPressable>
@@ -297,7 +297,7 @@ function EmptyState() {
       </View>
       <Text style={styles.emptyTitle}>Your first session is one tap away.</Text>
       <Text style={styles.emptyBody}>
-        Snap a page from your notebook or textbook. We'll turn it into 8 practice questions you can do in five minutes.
+        Snap a page from your notebook or textbook. We'll make a parallel worksheet you can do in five minutes.
       </Text>
     </View>
   );
