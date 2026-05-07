@@ -19,6 +19,19 @@ export const COUNTRIES = [
 
 export type CountryCode = (typeof COUNTRIES)[number]["code"];
 
+export function getLanguageForCountry(countryCode?: string, fallback = "English"): string {
+  return COUNTRIES.find((country) => country.code === countryCode)?.language ?? fallback;
+}
+
+export function shouldUseGermanContent(language?: string, countryCode?: string): boolean {
+  return getLanguageForCountry(countryCode, language) === "German";
+}
+
+export type GradeGroup = {
+  label: string;
+  grades: readonly string[];
+};
+
 export const GRADE_GROUPS = [
   {
     label: "Elementary School",
@@ -28,7 +41,22 @@ export const GRADE_GROUPS = [
     label: "Middle School",
     grades: ["Grade 7", "Grade 8"],
   },
-] as const;
+] as const satisfies readonly GradeGroup[];
+
+export const GERMANY_GRADE_GROUPS = [
+  {
+    label: "Grundschule",
+    grades: ["Klasse 1", "Klasse 2", "Klasse 3", "Klasse 4"],
+  },
+  {
+    label: "Gymnasium",
+    grades: ["Klasse 5", "Klasse 6", "Klasse 7", "Klasse 8"],
+  },
+] as const satisfies readonly GradeGroup[];
+
+export function getGradeGroupsForCountry(countryCode?: string): readonly GradeGroup[] {
+  return countryCode === "DE" ? GERMANY_GRADE_GROUPS : GRADE_GROUPS;
+}
 
 export const ALL_GRADES = GRADE_GROUPS.flatMap((g) => g.grades);
 
@@ -48,6 +76,29 @@ export const SUBJECTS = [
 ] as const;
 
 export type SubjectId = (typeof SUBJECTS)[number]["id"];
+
+const GERMAN_SUBJECT_LABELS: Record<SubjectId, string> = {
+  math: "Mathe",
+  reading: "Lesen & Schreiben",
+  science: "Sachkunde",
+  history: "Geschichte",
+  geography: "Geografie",
+  art: "Kunst",
+  music: "Musik",
+  computing: "Informatik",
+  pe: "Sport",
+  social: "Sozialkunde",
+  biology: "Biologie",
+  chemistry: "Chemie",
+};
+
+export function getSubjectsForLanguage(language?: string) {
+  if (language !== "German") return SUBJECTS;
+  return SUBJECTS.map((subject) => ({
+    ...subject,
+    label: GERMAN_SUBJECT_LABELS[subject.id],
+  }));
+}
 
 export const DIFFICULTIES = [
   {
@@ -75,8 +126,31 @@ export const DIFFICULTIES = [
 
 export type Difficulty = (typeof DIFFICULTIES)[number]["id"];
 
-export function getSubjectLabel(id: string): string {
-  return SUBJECTS.find((s) => s.id === id)?.label ?? id;
+const GERMAN_DIFFICULTY_COPY: Record<Difficulty, { label: string; desc: string }> = {
+  easier: {
+    label: "Leichter",
+    desc: "Mehr Hinweise, einfachere Fragen",
+  },
+  same: {
+    label: "Gleiches Niveau",
+    desc: "Ähnlich wie deine Aufgaben in der Schule",
+  },
+  harder: {
+    label: "Schwieriger",
+    desc: "Etwas anspruchsvoller als deine Schulaufgaben",
+  },
+};
+
+export function getDifficultiesForLanguage(language?: string) {
+  if (language !== "German") return DIFFICULTIES;
+  return DIFFICULTIES.map((difficulty) => ({
+    ...difficulty,
+    ...GERMAN_DIFFICULTY_COPY[difficulty.id],
+  }));
+}
+
+export function getSubjectLabel(id: string, language?: string): string {
+  return getSubjectsForLanguage(language).find((s) => s.id === id)?.label ?? id;
 }
 
 export function getSubjectEmoji(id: string): string {

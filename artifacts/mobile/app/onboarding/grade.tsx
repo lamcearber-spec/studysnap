@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GRADE_GROUPS } from "@/constants/data";
+import { getGradeGroupsForCountry } from "@/constants/data";
 import { useColors } from "@/hooks/useColors";
 
 export default function OnboardingGrade() {
@@ -27,6 +27,24 @@ export default function OnboardingGrade() {
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 60 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
+  const isGermany = params.countryCode === "DE";
+  const language = isGermany ? "German" : params.language;
+  const gradeGroups = getGradeGroupsForCountry(params.countryCode);
+  const copy = isGermany
+    ? {
+        step: "Schritt 2 von 4",
+        title: `Welche Klasse besuchst du${params.name ? `, ${params.name}` : ""}?`,
+        subtitle: "Wir erstellen Übungen auf Deutsch und passend zu deinem Schulsystem",
+        emptyCta: "Wähle deine Klasse",
+        selectedCta: (grade: string) => `Weiter mit ${grade}`,
+      }
+    : {
+        step: "Step 2 of 4",
+        title: `What grade are you in${params.name ? `, ${params.name}` : ""}?`,
+        subtitle: "We'll adjust exercises to your level",
+        emptyCta: "Select your grade",
+        selectedCta: (grade: string) => `Continue as ${grade}`,
+      };
 
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
 
@@ -35,7 +53,7 @@ export default function OnboardingGrade() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/onboarding/subjects",
-      params: { ...params, grade: selectedGrade },
+      params: { ...params, language, grade: selectedGrade },
     });
   };
 
@@ -45,14 +63,10 @@ export default function OnboardingGrade() {
         colors={[colors.primary, "#6366F1"]}
         style={[styles.header, { paddingTop: top + 20 }]}
       >
-        <Text style={styles.stepLabel}>Step 2 of 4</Text>
+        <Text style={styles.stepLabel}>{copy.step}</Text>
         <Text style={styles.headerEmoji}>🎒</Text>
-        <Text style={styles.headerTitle}>
-          What grade are you in{params.name ? `, ${params.name}` : ""}?
-        </Text>
-        <Text style={styles.headerSub}>
-          We'll adjust exercises to your level
-        </Text>
+        <Text style={styles.headerTitle}>{copy.title}</Text>
+        <Text style={styles.headerSub}>{copy.subtitle}</Text>
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((i) => (
             <View
@@ -67,7 +81,7 @@ export default function OnboardingGrade() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {GRADE_GROUPS.map((group) => (
+        {gradeGroups.map((group) => (
           <View key={group.label} style={styles.groupBlock}>
             <Text style={[styles.groupLabel, { color: colors.mutedForeground }]}>
               {group.label}
@@ -114,7 +128,7 @@ export default function OnboardingGrade() {
             style={styles.continueBtn}
           >
             <Text style={styles.continueBtnText}>
-              {selectedGrade ? `Continue as ${selectedGrade}` : "Select your grade"}
+              {selectedGrade ? copy.selectedCta(selectedGrade) : copy.emptyCta}
             </Text>
           </LinearGradient>
         </Pressable>

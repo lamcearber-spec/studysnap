@@ -16,19 +16,22 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   COUNTRIES,
-  DIFFICULTIES,
-  GRADE_GROUPS,
-  SUBJECTS,
+  getDifficultiesForLanguage,
+  getGradeGroupsForCountry,
+  getSubjectsForLanguage,
   type Difficulty,
 } from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
+import { useSubscription } from "@/lib/revenuecat";
+import { useGetUsage } from "@workspace/api-client-react";
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, updateProfile, clearProfile } = useProfile();
+  const { tier, isSubscribed, appUserId, showManageSubscriptions } = useSubscription();
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 67 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
@@ -94,6 +97,24 @@ export default function SettingsScreen() {
   };
 
   const country = COUNTRIES.find((c) => c.code === profile?.countryCode);
+  const gradeGroups = getGradeGroupsForCountry(profile?.countryCode);
+  const subjectsList = getSubjectsForLanguage(profile?.language);
+  const difficulties = getDifficultiesForLanguage(profile?.language);
+  const usageQuery = useGetUsage(
+    { appUserId: appUserId ?? "" },
+    {
+      query: {
+        queryKey: ["usage", appUserId ?? ""],
+        enabled: Boolean(isSubscribed && appUserId),
+        staleTime: 30 * 1000,
+      },
+    }
+  );
+  const usage = usageQuery.data;
+  const usagePct = usage ? Math.min(1, usage.used / usage.limit) : 0;
+  const resetLabel = usage
+    ? new Date(usage.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -136,6 +157,44 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {isSubscribed && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Plan & usage</Text>
+            <View style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.planHeader}>
+                <View>
+                  <Text style={[styles.planLabel, { color: colors.mutedForeground }]}>Current tier</Text>
+                  <Text style={[styles.planTier, { color: colors.foreground }]}>
+                    {tier === "premium" ? "Premium" : "Starter"}
+                  </Text>
+                </View>
+                <Pressable onPress={() => router.push("/paywall")} style={styles.planLink}>
+                  <Text style={[styles.planLinkText, { color: colors.primary }]}>Switch</Text>
+                </Pressable>
+              </View>
+
+              {usage && (
+                <>
+                  <View style={[styles.usageTrack, { backgroundColor: colors.muted }]}>
+                    <View style={[styles.usageFill, { backgroundColor: colors.primary, width: `${usagePct * 100}%` as any }]} />
+                  </View>
+                  <Text style={[styles.usageText, { color: colors.mutedForeground }]}>
+                    {usage.used} / {usage.limit} images this month · resets {resetLabel}
+                  </Text>
+                </>
+              )}
+
+              <Pressable
+                onPress={() => showManageSubscriptions()}
+                style={[styles.manageButton, { borderColor: colors.border }]}
+              >
+                <Ionicons name="card-outline" size={17} color={colors.primary} />
+                <Text style={[styles.manageText, { color: colors.primary }]}>Manage subscription</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {/* Student name */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Student Name</Text>
@@ -172,7 +231,7 @@ export default function SettingsScreen() {
         {/* Grade */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Grade</Text>
-          {GRADE_GROUPS.map((group) => (
+          {gradeGroups.map((group) => (
             <View key={group.label} style={styles.gradeGroup}>
               <Text style={[styles.groupLabel, { color: colors.mutedForeground }]}>
                 {group.label}
@@ -207,7 +266,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Exercise Difficulty</Text>
           <View style={styles.diffList}>
-            {DIFFICULTIES.map((d) => {
+            {difficulties.map((d) => {
               const isSelected = difficulty === d.id;
               return (
                 <Pressable
@@ -246,7 +305,7 @@ export default function SettingsScreen() {
             {subjects.length} selected — tap to toggle
           </Text>
           <View style={styles.subjectsGrid}>
-            {SUBJECTS.map((subject) => {
+            {subjectsList.map((subject) => {
               const isSelected = subjects.includes(subject.id);
               return (
                 <Pressable
@@ -321,6 +380,34 @@ const styles = StyleSheet.create({
   section: { gap: 14 },
   sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sectionSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },
+  planCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    gap: 12,
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  planLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  planTier: { fontSize: 18, fontFamily: "Inter_700Bold", marginTop: 2 },
+  planLink: { paddingHorizontal: 8, paddingVertical: 6 },
+  planLinkText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  usageTrack: { height: 8, borderRadius: 999, overflow: "hidden" },
+  usageFill: { height: "100%", borderRadius: 999 },
+  usageText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  manageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  manageText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   gradeGroup: { gap: 8 },
   groupLabel: {
     fontSize: 12,

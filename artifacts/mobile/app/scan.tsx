@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,12 +25,13 @@ import { useSession } from "@/context/SessionContext";
 import { useProfile } from "@/context/ProfileContext";
 import { maybeRequestReview } from "@/hooks/useAppReview";
 import { useColors } from "@/hooks/useColors";
-import { SUBJECTS, getSubjectLabel } from "@/constants/data";
+import { getGradeGroupsForCountry, getSubjectsForLanguage } from "@/constants/data";
+import { hasFreeScanAvailableToday } from "@/lib/freeScans";
+import { useSubscription } from "@/lib/revenuecat";
+import type { GenerateExercisesResponse, QuotaExceededError } from "@workspace/api-client-react";
 import { fetch } from "expo/fetch";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-const GRADES = ["Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8"];
 
 function IconButton({
   icon,
@@ -84,8 +85,8 @@ function convertImageToBase64(uri: string): Promise<string> {
         })
         .catch(reject);
     } else {
-      import("expo-file-system").then(({ readAsStringAsync, EncodingType }) => {
-        readAsStringAsync(uri, { encoding: EncodingType.Base64 })
+      import("expo-file-system").then(({ readAsStringAsync }) => {
+        readAsStringAsync(uri, { encoding: "base64" })
           .then(resolve)
           .catch(reject);
       });
@@ -97,8 +98,10 @@ export default function ScanScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { addSession } = useSession();
+  const { addSession, sessions, isLoading: sessionsLoading } = useSession();
   const { profile } = useProfile();
+  const { isSubscribed, isLoading: subscriptionLoading, appUserId } = useSubscription();
+  const enteredWithScanAccess = useRef<boolean | null>(null);
 
   // Defaults from profile, overrideable per scan
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -111,6 +114,22 @@ export default function ScanScreen() {
   const bottomPad = isWeb ? 34 : insets.bottom;
 
   const profileSubjects = profile?.subjects ?? [];
+  const subjectsList = getSubjectsForLanguage(profile?.language);
+  const gradeOptions = useMemo(
+    () => getGradeGroupsForCountry(profile?.countryCode).flatMap((group) => group.grades),
+    [profile?.countryCode]
+  );
+  const hasScanAccess = isSubscribed || hasFreeScanAvailableToday(sessions);
+
+  useEffect(() => {
+    if (sessionsLoading || subscriptionLoading) return;
+    if (enteredWithScanAccess.current === null) {
+      enteredWithScanAccess.current = hasScanAccess;
+    }
+    if (!enteredWithScanAccess.current && !isSubscribed) {
+      router.replace("/paywall");
+    }
+  }, [hasScanAccess, isSubscribed, router, sessionsLoading, subscriptionLoading]);
 
   const pickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -149,6 +168,15 @@ export default function ScanScreen() {
   };
 
   const handleGenerate = async () => {
+    if (sessionsLoading || subscriptionLoading) return;
+    if (!isSubscribed && !hasFreeScanAvailableToday(sessions)) {
+      router.replace("/paywall");
+      return;
+    }
+    if (!appUserId) {
+      Alert.alert("Almost ready", "StudySnap is still preparing your account. Please try again in a moment.");
+      return;
+    }
     if (!imageUri) return;
     setIsGenerating(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -164,6 +192,7 @@ export default function ScanScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageBase64: base64,
+          appUserId,
           subject: selectedSubject ?? undefined,
           grade: selectedGrade,
           language: profile?.language ?? "English",
@@ -172,15 +201,46 @@ export default function ScanScreen() {
         }),
       });
 
+      const data = await response.json() as GenerateExercisesResponse | QuotaExceededError;
+
+      if (response.status === 402 && "error" in data && data.error === "QUOTA_EXCEEDED") {
+        const sessionId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+        const session = {
+          id: sessionId,
+          imageUri,
+          subject: data.subject,
+          topic: data.topic,
+          grade: selectedGrade,
+          language: profile?.language,
+          exercises: data.exercises.map((ex) => ({
+            id: ex.id,
+            question: ex.question,
+            type: ex.type,
+            options: ex.options,
+            answer: ex.answer,
+            imageUrl: undefined,
+            status: "pending" as const,
+          })),
+          createdAt: new Date().toISOString(),
+          totalAnswered: 0,
+          totalCorrect: 0,
+        };
+        await addSession(session);
+        router.replace({
+          pathname: "/quota-exceeded",
+          params: {
+            sessionId,
+            used: String(data.quota.used),
+            limit: String(data.quota.limit),
+            resetAt: data.quota.resetAt,
+          },
+        } as never);
+        return;
+      }
+
       if (!response.ok) {
         throw new Error("Generation failed");
       }
-
-      const data = await response.json() as {
-        exercises: Array<{ id: string; question: string; type: string; options?: string[]; answer?: string }>;
-        subject: string;
-        topic: string;
-      };
 
       const sessionId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
 
@@ -197,8 +257,8 @@ export default function ScanScreen() {
           type: ex.type as "multiple-choice" | "short-answer" | "fill-blank",
           options: ex.options,
           answer: ex.answer,
-          userAnswer: undefined,
-          isCorrect: undefined,
+          imageUrl: ex.imageUrl,
+          status: "pending" as const,
         })),
         createdAt: new Date().toISOString(),
         totalAnswered: 0,
@@ -299,8 +359,8 @@ export default function ScanScreen() {
                 <View style={styles.chipsRow}>
                   {/* Profile subjects first, then rest */}
                   {[
-                    ...SUBJECTS.filter((s) => profileSubjects.includes(s.id)),
-                    ...SUBJECTS.filter((s) => !profileSubjects.includes(s.id)),
+                    ...subjectsList.filter((s) => profileSubjects.includes(s.id)),
+                    ...subjectsList.filter((s) => !profileSubjects.includes(s.id)),
                   ].map((s) => (
                     <Pressable
                       key={s.id}
@@ -331,7 +391,7 @@ export default function ScanScreen() {
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Grade</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
                 <View style={styles.chipsRow}>
-                  {GRADES.map((g) => (
+                  {gradeOptions.map((g) => (
                     <Pressable
                       key={g}
                       style={[
@@ -358,7 +418,7 @@ export default function ScanScreen() {
             {/* Generate button */}
             <Pressable
               onPress={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGenerating || sessionsLoading || subscriptionLoading}
               style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             >
               <LinearGradient
