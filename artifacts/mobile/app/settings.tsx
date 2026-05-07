@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
@@ -38,10 +37,14 @@ export default function SettingsScreen() {
   const nameRef = useRef<TextInput>(null);
 
   const [name, setName] = useState<string>(profile?.name ?? "");
+  const [countryCode, setCountryCode] = useState<string>(profile?.countryCode ?? "");
   const [subjects, setSubjects] = useState<string[]>(profile?.subjects ?? []);
   const [difficulty, setDifficulty] = useState<Difficulty>(profile?.difficulty ?? "same");
   const [grade, setGrade] = useState<string>(profile?.grade ?? "");
   const [isDirty, setIsDirty] = useState(false);
+
+  const selectedCountry = COUNTRIES.find((c) => c.code === countryCode);
+  const selectedLanguage = selectedCountry?.language ?? profile?.language ?? "English";
 
   const toggleSubject = (id: string) => {
     setSubjects((prev) =>
@@ -63,17 +66,45 @@ export default function SettingsScreen() {
     Haptics.selectionAsync();
   };
 
+  const selectCountry = (code: string) => {
+    const next = COUNTRIES.find((c) => c.code === code);
+    if (!next) return;
+    setCountryCode(code);
+    setIsDirty(true);
+    // Reset grade if it doesn't exist in the new country's grade groups
+    const nextGroups = getGradeGroupsForCountry(code);
+    const allGrades: string[] = nextGroups.flatMap((g) => [...g.grades]);
+    if (grade && !allGrades.includes(grade)) setGrade("");
+    // Keep only subjects valid for the new language
+    const nextSubjects = getSubjectsForLanguage(next.language);
+    const validIds = new Set<string>(nextSubjects.map((s) => s.id));
+    setSubjects((prev) => prev.filter((id) => validIds.has(id)));
+    Haptics.selectionAsync();
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert("Name required", "Please enter the student's name.");
       nameRef.current?.focus();
       return;
     }
+    if (!countryCode || !selectedCountry) {
+      Alert.alert("Country required", "Please select a country.");
+      return;
+    }
     if (subjects.length === 0) {
       Alert.alert("No subjects", "Please select at least one subject.");
       return;
     }
-    await updateProfile({ name: name.trim(), subjects, difficulty, grade });
+    await updateProfile({
+      name: name.trim(),
+      countryCode,
+      countryName: selectedCountry.name,
+      language: selectedCountry.language,
+      subjects,
+      difficulty,
+      grade,
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
@@ -96,10 +127,9 @@ export default function SettingsScreen() {
     );
   };
 
-  const country = COUNTRIES.find((c) => c.code === profile?.countryCode);
-  const gradeGroups = getGradeGroupsForCountry(profile?.countryCode);
-  const subjectsList = getSubjectsForLanguage(profile?.language);
-  const difficulties = getDifficultiesForLanguage(profile?.language);
+  const gradeGroups = getGradeGroupsForCountry(countryCode);
+  const subjectsList = getSubjectsForLanguage(selectedLanguage);
+  const difficulties = getDifficultiesForLanguage(selectedLanguage);
   const usageQuery = useGetUsage(
     { appUserId: appUserId ?? "" },
     {
@@ -137,25 +167,39 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile info */}
-        {profile && (
-          <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <LinearGradient
-              colors={[colors.primary + "20", colors.primary + "08"]}
-              style={styles.profileGradient}
-            >
-              <Text style={styles.profileFlag}>{country?.flag ?? "🌍"}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.profileName, { color: colors.foreground }]}>
-                  {profile.countryName}
-                </Text>
-                <Text style={[styles.profileSub, { color: colors.mutedForeground }]}>
-                  {profile.language} · {profile.grade}
-                </Text>
-              </View>
-            </LinearGradient>
+        {/* Country */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Country</Text>
+          <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
+            Sets the language and curriculum for exercises
+          </Text>
+          <View style={styles.countryGrid}>
+            {COUNTRIES.map((c) => {
+              const isSelected = countryCode === c.code;
+              return (
+                <Pressable
+                  key={c.code}
+                  style={[
+                    styles.countryChip,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => selectCountry(c.code)}
+                >
+                  <Text style={styles.countryFlag}>{c.flag}</Text>
+                  <Text
+                    style={[styles.countryName, { color: isSelected ? "#fff" : colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {c.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-        )}
+        </View>
 
         {isSubscribed && (
           <View style={styles.section}>
@@ -363,20 +407,18 @@ const styles = StyleSheet.create({
   saveBtn: { paddingHorizontal: 4, height: 40, justifyContent: "center" },
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   scrollContent: { padding: 20, gap: 28 },
-  profileCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  profileGradient: {
+  countryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  countryChip: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 14,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
   },
-  profileFlag: { fontSize: 36 },
-  profileName: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  profileSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
+  countryFlag: { fontSize: 18 },
+  countryName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   section: { gap: 14 },
   sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sectionSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },

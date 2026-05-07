@@ -85,7 +85,7 @@ export function SessionCard({ session }: SessionCardProps) {
             <Text style={[styles.subjectText, { color: subjectColor }]}>{session.subject}</Text>
           </View>
           <Text style={[styles.topic, { color: colors.foreground }]} numberOfLines={2}>
-            {session.topic}
+            {session.title ?? session.topic}
           </Text>
           <View style={styles.meta}>
             <View style={styles.metaItem}>

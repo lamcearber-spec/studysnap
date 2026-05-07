@@ -25,6 +25,7 @@ export interface Session {
   imageUri: string;
   subject: string;
   topic: string;
+  title?: string;
   grade?: string;
   language?: string;
   exercises: Exercise[];

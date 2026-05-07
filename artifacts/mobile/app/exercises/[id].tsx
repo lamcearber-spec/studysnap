@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,10 +23,34 @@ export default function ExercisesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getSession, deleteSession } = useSession();
+  const { getSession, deleteSession, updateSession } = useSession();
   const session = getSession(id);
   const topPad = isWeb ? 56 : insets.top;
   const bottomPad = isWeb ? 28 : insets.bottom;
+
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const titleInputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (session) setTitleDraft(session.title ?? session.topic);
+  }, [session?.id]);
+
+  const commitTitle = () => {
+    if (!session) return;
+    setEditingTitle(false);
+    const trimmed = titleDraft.trim();
+    const next = trimmed || session.topic;
+    if (next !== (session.title ?? session.topic)) {
+      updateSession({ ...session, title: next });
+    }
+  };
+
+  const startEditingTitle = () => {
+    if (!isWeb) Haptics.selectionAsync();
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 50);
+  };
 
   const handleDelete = () => {
     Alert.alert("Delete session", "Delete this worksheet session?", [
@@ -57,9 +82,10 @@ export default function ExercisesScreen() {
     );
   }
 
-  const correctCount = session.exercises.filter((exercise) => exercise.status === "correct").length;
-  const wrongCount = session.exercises.filter((exercise) => exercise.status === "wrong").length;
+  const correctCount = session.exercises.filter((e) => e.status === "correct").length;
+  const wrongCount = session.exercises.filter((e) => e.status === "wrong").length;
   const pendingCount = Math.max(0, session.exercises.length - correctCount - wrongCount);
+  const displayTitle = session.title ?? session.topic;
 
   return (
     <View style={[styles.screen, { paddingTop: topPad }]}>
@@ -72,12 +98,36 @@ export default function ExercisesScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={C.ink} />
         </Pressable>
-        <View style={styles.headerCenter}>
+
+        <Pressable
+          style={styles.headerCenter}
+          onPress={startEditingTitle}
+          accessibilityRole="button"
+          accessibilityLabel="Edit session title"
+        >
           <Text style={styles.headerKicker}>WORKSHEET</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            Worksheet · {session.topic}
-          </Text>
-        </View>
+          {editingTitle ? (
+            <TextInput
+              ref={titleInputRef}
+              value={titleDraft}
+              onChangeText={setTitleDraft}
+              onBlur={commitTitle}
+              onSubmitEditing={commitTitle}
+              style={styles.headerTitleInput}
+              returnKeyType="done"
+              maxLength={60}
+              selectTextOnFocus
+            />
+          ) : (
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {displayTitle}
+              </Text>
+              <Ionicons name="pencil-outline" size={13} color={C.inkMuted} style={styles.editIcon} />
+            </View>
+          )}
+        </Pressable>
+
         <Pressable
           onPress={handleDelete}
           style={styles.iconButton}
@@ -191,13 +241,34 @@ const styles = StyleSheet.create({
     color: C.inkMuted,
     letterSpacing: 1.3,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: "100%",
+  },
   headerTitle: {
     fontFamily: F.displaySemi,
     fontSize: 17,
     lineHeight: 23,
     color: C.ink,
     letterSpacing: 0,
-    maxWidth: "100%",
+    flexShrink: 1,
+  },
+  editIcon: {
+    marginTop: 1,
+  },
+  headerTitleInput: {
+    fontFamily: F.displaySemi,
+    fontSize: 17,
+    lineHeight: 23,
+    color: C.ink,
+    borderBottomWidth: 1.5,
+    borderBottomColor: C.primary,
+    paddingBottom: 1,
+    minWidth: 120,
+    maxWidth: 220,
+    textAlign: "center",
   },
   scroll: {
     padding: 16,

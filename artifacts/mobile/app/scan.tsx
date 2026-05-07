@@ -210,6 +210,7 @@ export default function ScanScreen() {
           imageUri,
           subject: data.subject,
           topic: data.topic,
+          title: data.topic,
           grade: selectedGrade,
           language: profile?.language,
           exercises: data.exercises.map((ex) => ({
@@ -249,6 +250,7 @@ export default function ScanScreen() {
         imageUri,
         subject: data.subject,
         topic: data.topic,
+        title: data.topic,
         grade: selectedGrade,
         language: profile?.language,
         exercises: data.exercises.map((ex) => ({
