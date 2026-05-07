@@ -19,43 +19,15 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProfile } from "@/context/ProfileContext";
-import { useSession } from "@/context/SessionContext";
-import { DIFFICULTIES, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { type Session, useSession } from "@/context/SessionContext";
+import { getDifficultiesForLanguage, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { hasFreeScanAvailableToday } from "@/lib/freeScans";
+import { useSubscription } from "@/lib/revenuecat";
+import { useGetUsage, type Quota } from "@workspace/api-client-react";
+import { C, F } from "@/app/_components/tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const isWeb = Platform.OS === "web";
-
-// === Modern Schoolyard tokens (Stitch-generated rubric) ====================
-const C = {
-  surface: "#FAF9F6",
-  surfaceLow: "#F4F1ED",
-  surfaceHigh: "#EAE6E0",
-  card: "#FFFFFF",
-  ink: "#1B1C1C",
-  inkBody: "#42493E",
-  inkMuted: "#72796E",
-  hairline: "#C2C9BB",
-  primary: "#2D5A27",
-  primaryDark: "#154212",
-  primaryShadow: "#0F2F0C",
-  primaryFixedDim: "#A1D494",
-  primaryTint: "rgba(45,90,39,0.10)",
-  primaryBorderTint: "rgba(45,90,39,0.30)",
-  yellow: "#F7D060",
-  yellowDeep: "#745B00",
-  yellowSoft: "#FCE393",
-  yellowTint: "rgba(247,208,96,0.16)",
-  error: "#BA1A1A",
-};
-
-const F = {
-  display: "Epilogue_700Bold",
-  displaySemi: "Epilogue_600SemiBold",
-  body: "Inter_400Regular",
-  bodyMedium: "Inter_500Medium",
-  bodySemi: "Inter_600SemiBold",
-  bodyBold: "Inter_700Bold",
-};
 
 function getGreeting(name?: string): { text: string; emoji: string } {
   const hour = new Date().getHours();
@@ -71,6 +43,8 @@ function getGreeting(name?: string): { text: string; emoji: string } {
 //   - Press → face translateY +2px + ledge height 4→2px = "key pressed" feel.
 function ScanCTA() {
   const router = useRouter();
+  const { sessions } = useSession();
+  const { isSubscribed, isLoading: subscriptionLoading } = useSubscription();
   const press = useSharedValue(0);
 
   const faceStyle = useAnimatedStyle(() => ({
@@ -82,6 +56,10 @@ function ScanCTA() {
 
   const onPress = () => {
     if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!subscriptionLoading && !isSubscribed && !hasFreeScanAvailableToday(sessions)) {
+      router.push("/paywall");
+      return;
+    }
     router.push("/scan");
   };
 
@@ -101,7 +79,7 @@ function ScanCTA() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.ctaTitle}>Scan classwork</Text>
-          <Text style={styles.ctaSub}>Snap a page · we'll make 8 questions</Text>
+          <Text style={styles.ctaSub}>Snap a page · we'll make matching practice.</Text>
         </View>
         <Ionicons name="arrow-forward" size={22} color="rgba(255,255,255,0.85)" />
       </AnimatedPressable>
@@ -145,6 +123,29 @@ function StreakCard({ streak, doneToday, totalToday }: {
   );
 }
 
+function UsageChip({ quota, streak }: { quota: Quota; streak: number }) {
+  const usedPct = quota.limit <= 0 ? 0 : Math.min(1, quota.used / quota.limit);
+  const filledBlocks = Math.round(usedPct * 10);
+  const usageBlocks = Array.from({ length: 10 }, (_, index) => index < filledBlocks ? "█" : "░").join("");
+  const resetLabel = new Date(quota.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  return (
+    <View>
+      <View style={styles.kickerRow}>
+        <View style={styles.kickerPip} />
+        <Text style={styles.kicker}>DAILY HABIT</Text>
+      </View>
+      <View style={styles.usageChip}>
+        <Text style={styles.usageHeadline}>🔥 {streak} days in a row</Text>
+        <Text style={styles.usageBlocks}>{usageBlocks}</Text>
+        <Text style={styles.usageMeta}>
+          {quota.used} / {quota.limit} images this month · resets {resetLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function StatTrio({ sessions, exercises, accuracy }: {
   sessions: number; exercises: number; accuracy: number | null;
 }) {
@@ -173,21 +174,56 @@ function StatCard({ label, value, valueColor }: { label: string; value: string; 
   );
 }
 
+function getReviewCounts(session: Session) {
+  const total = session.exercises.length;
+  const hasStatuses = session.exercises.some((exercise) => exercise.status !== undefined);
+
+  if (!hasStatuses) {
+    const answered = Math.min(total, Math.max(0, session.totalAnswered));
+    const correct = Math.min(answered, Math.max(0, session.totalCorrect));
+    return {
+      total,
+      answered,
+      correct,
+      wrong: Math.max(0, answered - correct),
+      pending: Math.max(0, total - answered),
+    };
+  }
+
+  const correct = session.exercises.filter((exercise) => exercise.status === "correct").length;
+  const wrong = session.exercises.filter((exercise) => exercise.status === "wrong").length;
+  const answered = correct + wrong;
+  return {
+    total,
+    answered,
+    correct,
+    wrong,
+    pending: Math.max(0, total - answered),
+  };
+}
+
 // Trophy row — tactile, three-tier (PERFECT / HIGH / REGULAR), pressable.
 function TrophyRow({
-  emoji, title, correct, total, dateLabel, onPress,
+  emoji, title, correct, answered, pending, total, dateLabel, onPress,
 }: {
-  emoji: string; title: string; correct: number; total: number; dateLabel: string;
+  emoji: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
   onPress: () => void;
 }) {
-  const pct = total === 0 ? 0 : Math.round((correct / total) * 100);
-  const isPerfect = pct === 100;
-  const isHigh = !isPerfect && pct >= 80;
+  const pct = answered === 0 ? 0 : Math.round((correct / answered) * 100);
+  const tier =
+    answered === 0 ? "pending"
+    : pct === 100 ? "perfect"
+    : pct >= 80 ? "high"
+    : "regular";
+  const isPending = tier === "pending";
+  const isPerfect = tier === "perfect";
+  const isHigh = tier === "high";
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const cardStyle = [
     styles.trophyCard,
+    isPending && styles.trophyCardPending,
     isPerfect && styles.trophyCardPerfect,
     animatedStyle,
   ];
@@ -207,7 +243,11 @@ function TrophyRow({
         onPress();
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${correct} of ${total} correct, ${pct} percent, ${dateLabel}`}
+      accessibilityLabel={
+        isPending
+          ? `${title}, awaiting review, ${pending} of ${total} pending, ${dateLabel}`
+          : `${title}, ${correct} of ${answered} correct, ${pct} percent, ${dateLabel}`
+      }
     >
       {isHigh && <View style={styles.trophyLeftRail} />}
       <View style={emojiWrapStyle}>
@@ -223,14 +263,20 @@ function TrophyRow({
           )}
         </View>
         <Text style={styles.trophyMeta}>
-          <Text style={[
-            styles.trophyCorrect,
-            isPerfect && { color: C.yellowDeep },
-            isHigh && { color: C.primary },
-          ]}>
-            {correct}/{total} correct
-          </Text>
-          <Text style={styles.trophyMetaDim}>{"  ·  "}{pct}%</Text>
+          {isPending ? (
+            <Text style={styles.trophyAwaiting}>Awaiting review · {pending} of {total}</Text>
+          ) : (
+            <>
+              <Text style={[
+                styles.trophyCorrect,
+                isPerfect && { color: C.yellowDeep },
+                isHigh && { color: C.primary },
+              ]}>
+                {correct}/{answered} correct
+              </Text>
+              <Text style={styles.trophyMetaDim}>{"  ·  "}{pct}%</Text>
+            </>
+          )}
           <Text style={styles.trophyMetaDim}>{"  ·  "}{dateLabel}</Text>
         </Text>
       </View>
@@ -251,25 +297,25 @@ function EmptyState() {
       </View>
       <Text style={styles.emptyTitle}>Your first session is one tap away.</Text>
       <Text style={styles.emptyBody}>
-        Snap a page from your notebook or textbook. We'll turn it into 8 practice questions you can do in five minutes.
+        Snap a page from your notebook or textbook. We'll make a parallel worksheet you can do in five minutes.
       </Text>
     </View>
   );
 }
 
-function SubjectChip({ id }: { id: string }) {
+function SubjectChip({ id, language }: { id: string; language?: string }) {
   return (
     <View style={styles.chip}>
       <Text style={styles.chipEmoji}>{getSubjectEmoji(id)}</Text>
-      <Text style={styles.chipLabel}>{getSubjectLabel(id)}</Text>
+      <Text style={styles.chipLabel}>{getSubjectLabel(id, language)}</Text>
     </View>
   );
 }
 
 function ProfileStrip({
-  grade, difficultyLabel, difficultyEmoji, subjects,
+  grade, difficultyLabel, difficultyEmoji, subjects, language,
 }: {
-  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[];
+  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[]; language?: string;
 }) {
   return (
     <View style={styles.profileStrip}>
@@ -290,7 +336,7 @@ function ProfileStrip({
         nestedScrollEnabled
         style={{ flex: 1 }}
       >
-        {subjects.slice(0, 5).map((id) => <SubjectChip key={id} id={id} />)}
+        {subjects.slice(0, 5).map((id) => <SubjectChip key={id} id={id} language={language} />)}
         {subjects.length > 5 && (
           <View style={[styles.chip, styles.chipOverflow]}>
             <Text style={[styles.chipLabel, { color: C.inkMuted }]}>+{subjects.length - 5}</Text>
@@ -336,20 +382,49 @@ export default function HomeScreen() {
   const router = useRouter();
   const { sessions, isLoading } = useSession();
   const { profile } = useProfile();
+  const { isSubscribed, appUserId } = useSubscription();
 
   const topPad = isWeb ? 56 : insets.top;
   const bottomPad = isWeb ? 28 : insets.bottom;
+  const usageQuery = useGetUsage(
+    { appUserId: appUserId ?? "" },
+    {
+      query: {
+        queryKey: ["usage", appUserId ?? ""],
+        enabled: Boolean(isSubscribed && appUserId),
+        staleTime: 30 * 1000,
+      },
+    }
+  );
 
   const greeting = getGreeting(profile?.name);
-  const difficultyInfo = DIFFICULTIES.find((d) => d.id === profile?.difficulty);
-  const totalCorrect = sessions.reduce((sum, s) => sum + s.totalCorrect, 0);
+  const difficulties = getDifficultiesForLanguage(profile?.language);
+  const difficultyInfo = difficulties.find((d) => d.id === profile?.difficulty);
   const totalExercises = sessions.reduce((sum, s) => sum + s.exercises.length, 0);
-  const accuracy = totalExercises > 0 ? Math.round((totalCorrect / totalExercises) * 100) : null;
+  const reviewedTotals = sessions.reduce(
+    (acc, session) => {
+      const counts = getReviewCounts(session);
+      return {
+        correct: acc.correct + counts.correct,
+        answered: acc.answered + counts.answered,
+      };
+    },
+    { correct: 0, answered: 0 },
+  );
+  const accuracy = reviewedTotals.answered > 0
+    ? Math.round((reviewedTotals.correct / reviewedTotals.answered) * 100)
+    : null;
 
   const streak = computeStreak(sessions.map((s) => s.createdAt));
   const todaysExercises = sessions
     .filter((s) => isSameDay(new Date(s.createdAt), new Date()))
     .reduce((sum, s) => sum + s.exercises.length, 0);
+
+  React.useEffect(() => {
+    if (isSubscribed && appUserId) {
+      usageQuery.refetch();
+    }
+  }, [appUserId, isSubscribed, sessions.length]);
 
   return (
     <View style={[styles.screen, { paddingTop: topPad }]}>
@@ -375,14 +450,19 @@ export default function HomeScreen() {
             difficultyLabel={difficultyInfo?.label ?? "Same level"}
             difficultyEmoji={difficultyInfo?.emoji ?? "⚡"}
             subjects={profile.subjects ?? []}
+            language={profile.language}
           />
+        )}
+
+        {isSubscribed && usageQuery.data && (
+          <UsageChip quota={usageQuery.data} streak={streak} />
         )}
 
         {/* Hero CTA */}
         <ScanCTA />
 
         {/* Streak (post-first-session only) */}
-        {sessions.length > 0 && (
+        {sessions.length > 0 && !usageQuery.data && (
           <StreakCard
             streak={streak}
             doneToday={todaysExercises}
@@ -403,17 +483,22 @@ export default function HomeScreen() {
           <View>
             <SectionHead kicker="RECENT" title="Trophy shelf" />
             <View style={{ gap: 12 }}>
-              {sessions.slice(0, 5).map((session) => (
-                <TrophyRow
-                  key={session.id}
-                  emoji={getSubjectEmoji(session.subject)}
-                  title={session.topic || getSubjectLabel(session.subject)}
-                  correct={session.totalCorrect}
-                  total={session.exercises.length}
-                  dateLabel={relativeDate(new Date(session.createdAt))}
-                  onPress={() => router.push(`/exercises/${session.id}`)}
-                />
-              ))}
+              {sessions.slice(0, 5).map((session) => {
+                const counts = getReviewCounts(session);
+                return (
+                  <TrophyRow
+                    key={session.id}
+                    emoji={getSubjectEmoji(session.subject)}
+                    title={session.topic || getSubjectLabel(session.subject, profile?.language)}
+                    correct={counts.correct}
+                    answered={counts.answered}
+                    pending={counts.pending}
+                    total={counts.total}
+                    dateLabel={relativeDate(new Date(session.createdAt))}
+                    onPress={() => router.push(`/exercises/${session.id}`)}
+                  />
+                );
+              })}
             </View>
           </View>
         )}
@@ -591,6 +676,32 @@ const styles = StyleSheet.create({
   streakSub: {
     fontFamily: F.bodyMedium, fontSize: 12, color: C.inkBody, marginTop: 8,
   },
+  usageChip: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 16,
+    gap: 8,
+    ...shadow(2),
+  },
+  usageHeadline: {
+    fontFamily: F.displaySemi,
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: 0,
+  },
+  usageBlocks: {
+    fontFamily: F.bodyBold,
+    fontSize: 16,
+    color: C.primary,
+    letterSpacing: 1,
+  },
+  usageMeta: {
+    fontFamily: F.bodyMedium,
+    fontSize: 12,
+    color: C.inkBody,
+  },
 
   // Section head
   sectionHead: { marginBottom: 12 },
@@ -624,6 +735,10 @@ const styles = StyleSheet.create({
     padding: 12, paddingLeft: 16,
     overflow: "hidden",
     ...shadow(1),
+  },
+  trophyCardPending: {
+    backgroundColor: "#FFFDF4",
+    borderColor: "rgba(116,91,0,0.16)",
   },
   trophyCardPerfect: {
     backgroundColor: C.yellowTint,
@@ -662,6 +777,7 @@ const styles = StyleSheet.create({
   },
   trophyMeta: { fontFamily: F.body, fontSize: 12, color: C.inkMuted, marginTop: 4 },
   trophyCorrect: { fontFamily: F.bodySemi, color: C.ink },
+  trophyAwaiting: { fontFamily: F.bodySemi, fontSize: 12, color: C.inkMuted },
   trophyMetaDim: { color: C.inkMuted },
 
   // Empty

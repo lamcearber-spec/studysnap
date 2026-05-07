@@ -39,6 +39,20 @@ function formatDate(dateString: string) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function getReviewCounts(session: Session) {
+  const total = session.exercises.length;
+  const hasStatuses = session.exercises.some((exercise) => exercise.status !== undefined);
+  if (!hasStatuses) {
+    const answered = Math.min(total, Math.max(0, session.totalAnswered));
+    const correct = Math.min(answered, Math.max(0, session.totalCorrect));
+    return { answered, correct, pending: Math.max(0, total - answered) };
+  }
+
+  const correct = session.exercises.filter((exercise) => exercise.status === "correct").length;
+  const wrong = session.exercises.filter((exercise) => exercise.status === "wrong").length;
+  return { answered: correct + wrong, correct, pending: Math.max(0, total - correct - wrong) };
+}
+
 export function SessionCard({ session }: SessionCardProps) {
   const colors = useColors();
   const router = useRouter();
@@ -49,8 +63,9 @@ export function SessionCard({ session }: SessionCardProps) {
   }));
 
   const subjectColor = getSubjectColor(session.subject, colors);
-  const progress = session.exercises.length > 0 ? session.totalAnswered / session.exercises.length : 0;
-  const accuracy = session.totalAnswered > 0 ? Math.round((session.totalCorrect / session.totalAnswered) * 100) : null;
+  const review = getReviewCounts(session);
+  const progress = session.exercises.length > 0 ? review.answered / session.exercises.length : 0;
+  const accuracy = review.answered > 0 ? Math.round((review.correct / review.answered) * 100) : null;
 
   return (
     <AnimatedPressable
@@ -83,6 +98,14 @@ export function SessionCard({ session }: SessionCardProps) {
               <View style={styles.metaItem}>
                 <Ionicons name="trophy-outline" size={13} color={colors.accent} />
                 <Text style={[styles.metaText, { color: colors.accent }]}>{accuracy}%</Text>
+              </View>
+            )}
+            {accuracy === null && (
+              <View style={styles.metaItem}>
+                <Ionicons name="ellipse-outline" size={13} color={colors.mutedForeground} />
+                <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                  Awaiting review
+                </Text>
               </View>
             )}
             <View style={styles.metaItem}>

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 
 export type ExerciseType = "multiple-choice" | "short-answer" | "fill-blank";
+export type ExerciseStatus = "pending" | "correct" | "wrong";
 
 export interface Exercise {
   id: string;
@@ -15,8 +16,8 @@ export interface Exercise {
   type: ExerciseType;
   options?: string[];
   answer?: string;
-  userAnswer?: string;
-  isCorrect?: boolean;
+  imageUrl?: string;
+  status?: ExerciseStatus;
 }
 
 export interface Session {
@@ -38,6 +39,7 @@ interface SessionContextType {
   updateSession: (session: Session) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   getSession: (id: string) => Session | undefined;
+  setExerciseStatus: (sessionId: string, exerciseId: string, status: ExerciseStatus) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -87,6 +89,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setExerciseStatus = useCallback(async (
+    sessionId: string,
+    exerciseId: string,
+    status: ExerciseStatus,
+  ) => {
+    setSessions((prev) => {
+      const updated = prev.map((session) => {
+        if (session.id !== sessionId) return session;
+
+        const exercises = session.exercises.map((exercise) =>
+          exercise.id === exerciseId ? { ...exercise, status } : exercise
+        );
+        const totalAnswered = exercises.filter((exercise) =>
+          exercise.status === "correct" || exercise.status === "wrong"
+        ).length;
+        const totalCorrect = exercises.filter((exercise) => exercise.status === "correct").length;
+
+        return { ...session, exercises, totalAnswered, totalCorrect };
+      });
+      saveSessions(updated);
+      return updated;
+    });
+  }, []);
+
   const deleteSession = useCallback(async (id: string) => {
     setSessions((prev) => {
       const updated = prev.filter((s) => s.id !== id);
@@ -102,7 +128,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionContext.Provider
-      value={{ sessions, addSession, updateSession, deleteSession, getSession, isLoading }}
+      value={{
+        sessions,
+        addSession,
+        updateSession,
+        deleteSession,
+        getSession,
+        setExerciseStatus,
+        isLoading,
+      }}
     >
       {children}
     </SessionContext.Provider>

@@ -16,48 +16,84 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Get current image usage
+ */
+export const GetUsageQueryParams = zod.object({
+  appUserId: zod.coerce.string(),
+});
+
+export const GetUsageResponse = zod.object({
+  used: zod.number(),
+  limit: zod.number(),
+  resetAt: zod.coerce.date(),
+  tier: zod.enum(["starter", "premium"]),
+});
+
+/**
+ * @summary Check and reserve image usage
+ */
+export const checkUsageBodyImageCountMin = 0;
+
+export const CheckUsageBody = zod.object({
+  appUserId: zod.string(),
+  imageCount: zod.number().min(checkUsageBodyImageCountMin),
+});
+
+export const CheckUsageResponse = zod.object({
+  used: zod.number(),
+  limit: zod.number(),
+  resetAt: zod.coerce.date(),
+  tier: zod.enum(["starter", "premium"]),
+});
+
+/**
+ * @summary RevenueCat webhook for subscription renewals and tier updates
+ */
+export const RevenueCatWebhookBody = zod.record(zod.string(), zod.unknown());
+
+export const RevenueCatWebhookResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary Generate exercises from a classwork image
  */
 export const GenerateExercisesBody = zod.object({
   imageBase64: zod
     .string()
-    .describe("Base64-encoded image of the classwork page"),
-  subject: zod
+    .describe("Base64-encoded JPEG of the classwork page"),
+  appUserId: zod
     .string()
-    .optional()
-    .describe('Optional subject hint (e.g. \"Math\", \"Science\")'),
-  grade: zod
-    .string()
-    .optional()
-    .describe('Optional grade level (e.g. \"Grade 3\", \"Year 5\")'),
-  language: zod
-    .string()
-    .optional()
-    .describe(
-      'Language for exercises (e.g. \"English\", \"German\", \"French\", \"Spanish\", \"Dutch\")',
-    ),
-  countryCode: zod
-    .string()
-    .optional()
-    .describe(
-      'ISO 3166-1 alpha-2 country code (e.g. \"GB\", \"US\", \"DE\") for curriculum alignment',
-    ),
-  difficulty: zod
-    .enum(["easier", "same", "harder"])
-    .optional()
-    .describe("Difficulty relative to classwork"),
+    .describe("RevenueCat app_user_id used for quota check"),
+  subject: zod.string().optional(),
+  grade: zod.string().optional(),
+  language: zod.string().optional(),
+  countryCode: zod.string().optional(),
+  difficulty: zod.enum(["easier", "same", "harder"]).optional(),
 });
 
 export const GenerateExercisesResponse = zod.object({
   exercises: zod.array(
     zod.object({
       id: zod.string(),
-      question: zod.string(),
       type: zod.enum(["multiple-choice", "short-answer", "fill-blank"]),
+      question: zod.string(),
       options: zod.array(zod.string()).optional(),
       answer: zod.string().optional(),
+      imageUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Public URL of the edited image variant on R2. Present only if the exercise has a visual.",
+        ),
     }),
   ),
   subject: zod.string(),
   topic: zod.string(),
+  quota: zod.object({
+    used: zod.number(),
+    limit: zod.number(),
+    resetAt: zod.coerce.date(),
+    tier: zod.enum(["starter", "premium"]),
+  }),
 });

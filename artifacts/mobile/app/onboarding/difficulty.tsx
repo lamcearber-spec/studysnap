@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DIFFICULTIES, type Difficulty } from "@/constants/data";
+import {
+  getDifficultiesForLanguage,
+  getLanguageForCountry,
+  shouldUseGermanContent,
+  type Difficulty,
+} from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -32,6 +37,26 @@ export default function OnboardingDifficulty() {
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 60 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
+  const language = getLanguageForCountry(params.countryCode, params.language);
+  const isGerman = shouldUseGermanContent(language, params.countryCode);
+  const difficulties = getDifficultiesForLanguage(language);
+  const copy = isGerman
+    ? {
+        step: "Schritt 4 von 4",
+        title: "Wie schwer soll es sein?",
+        subtitle: "Wie schwierig sollen die Übungen im Vergleich zu deinen Schulaufgaben sein?",
+        ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
+        emptyCta: "Wähle einen Schwierigkeitsgrad",
+        selectedCta: "Los geht's!",
+      }
+    : {
+        step: "Step 4 of 4",
+        title: "How hard should it be?",
+        subtitle: "How difficult should the practice exercises be compared to your classwork?",
+        ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
+        emptyCta: "Select a difficulty level",
+        selectedCta: "Let's go!",
+      };
 
   const [selected, setSelected] = useState<Difficulty | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +69,7 @@ export default function OnboardingDifficulty() {
       name: params.name ?? "",
       countryCode: params.countryCode,
       countryName: params.countryName,
-      language: params.language,
+      language,
       grade: params.grade,
       subjects: params.subjects.split(",").filter(Boolean),
       difficulty: selected,
@@ -58,12 +83,11 @@ export default function OnboardingDifficulty() {
         colors={[colors.primary, "#6366F1"]}
         style={[styles.header, { paddingTop: top + 20 }]}
       >
-        <Text style={styles.stepLabel}>Step 4 of 4</Text>
+        <Text style={styles.stepLabel}>{copy.step}</Text>
         <Text style={styles.headerEmoji}>⚡</Text>
-        <Text style={styles.headerTitle}>How hard should it be?</Text>
-        <Text style={styles.headerSub}>
-          How difficult should the practice exercises be compared to your classwork?
-        </Text>
+        <Text style={styles.headerTitle}>{copy.title}</Text>
+        <Text style={styles.headerSub}>{copy.subtitle}</Text>
+        <Text style={styles.ritualSub}>{copy.ritual}</Text>
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((i) => (
             <View key={i} style={styles.dotActive} />
@@ -75,7 +99,7 @@ export default function OnboardingDifficulty() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
-        {DIFFICULTIES.map((d) => {
+        {difficulties.map((d) => {
           const isSelected = selected === d.id;
           return (
             <Pressable
@@ -129,7 +153,7 @@ export default function OnboardingDifficulty() {
               <ActivityIndicator color="#fff" size="small" />
             ) : (
               <Text style={styles.finishBtnText}>
-                {selected ? "Let's go! 🚀" : "Select a difficulty level"}
+                {selected ? copy.selectedCta : copy.emptyCta}
               </Text>
             )}
           </LinearGradient>
@@ -166,6 +190,14 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.8)",
     textAlign: "center",
     lineHeight: 20,
+  },
+  ritualSub: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.92)",
+    textAlign: "center",
+    lineHeight: 19,
+    marginTop: 4,
   },
   dotsRow: { flexDirection: "row", gap: 6, marginTop: 12 },
   dotActive: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" },

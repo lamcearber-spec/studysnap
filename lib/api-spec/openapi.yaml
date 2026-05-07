@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: exercises
     description: Exercise generation operations
+  - name: usage
+    description: Usage and quota operations
 paths:
   /healthz:
     get:
@@ -26,6 +28,90 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /usage:
+    get:
+      operationId: getUsage
+      tags: [usage]
+      summary: Get current image usage
+      parameters:
+        - in: query
+          name: appUserId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current usage quota
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /usage/check:
+    post:
+      operationId: checkUsage
+      tags: [usage]
+      summary: Check and reserve image usage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appUserId, imageCount]
+              properties:
+                appUserId:
+                  type: string
+                imageCount:
+                  type: integer
+                  minimum: 0
+      responses:
+        "200":
+          description: Updated usage quota
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quota"
+        "402":
+          description: Image quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaExceededError"
+  /revenuecat/webhook:
+    post:
+      operationId: revenueCatWebhook
+      tags: [usage]
+      summary: RevenueCat webhook for subscription renewals and tier updates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Webhook accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+        "401":
+          description: Invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /exercises/generate:
     post:
       operationId: generateExercises
@@ -44,6 +130,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerateExercisesResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Image quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotaExceededError"
         "500":
           description: Generation failed
           content:
@@ -61,50 +159,75 @@ components:
         - status
     GenerateExercisesRequest:
       type: object
+      required:
+        - imageBase64
+        - appUserId
       properties:
         imageBase64:
           type: string
-          description: Base64-encoded image of the classwork page
+          description: Base64-encoded JPEG of the classwork page
+        appUserId:
+          type: string
+          description: RevenueCat app_user_id used for quota check
         subject:
           type: string
-          description: Optional subject hint (e.g. "Math", "Science")
         grade:
           type: string
-          description: Optional grade level (e.g. "Grade 3", "Year 5")
         language:
           type: string
-          description: Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch")
         countryCode:
           type: string
-          description: ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE") for curriculum alignment
         difficulty:
           type: string
           enum: [easier, same, harder]
-          description: Difficulty relative to classwork
-      required:
-        - imageBase64
     Exercise:
       type: object
+      required:
+        - id
+        - type
+        - question
       properties:
         id:
-          type: string
-        question:
           type: string
         type:
           type: string
           enum: [multiple-choice, short-answer, fill-blank]
+        question:
+          type: string
         options:
           type: array
           items:
             type: string
         answer:
           type: string
+        imageUrl:
+          type: string
+          description: Public URL of the edited image variant on R2. Present only if the exercise has a visual.
+    Quota:
+      type: object
       required:
-        - id
-        - question
-        - type
+        - used
+        - limit
+        - resetAt
+        - tier
+      properties:
+        used:
+          type: integer
+        limit:
+          type: integer
+        resetAt:
+          type: string
+          format: date-time
+        tier:
+          type: string
+          enum: [starter, premium]
     GenerateExercisesResponse:
       type: object
+      required:
+        - exercises
+        - subject
+        - topic
+        - quota
       properties:
         exercises:
           type: array
@@ -114,10 +237,21 @@ components:
           type: string
         topic:
           type: string
-      required:
-        - exercises
-        - subject
-        - topic
+        quota:
+          $ref: "#/components/schemas/Quota"
+    QuotaExceededError:
+      allOf:
+        - $ref: "#/components/schemas/GenerateExercisesResponse"
+        - type: object
+          required:
+            - error
+            - quota
+          properties:
+            error:
+              type: string
+              enum: [QUOTA_EXCEEDED]
+            quota:
+              $ref: "#/components/schemas/Quota"
     ErrorResponse:
       type: object
       properties:
