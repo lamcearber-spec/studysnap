@@ -59,24 +59,6 @@ export default function SettingsHubScreen() {
             onPress={() => goTo("/settings/user")}
             colors={colors}
           />
-          <Separator colors={colors} />
-          <SettingsRow
-            icon="flag-outline"
-            iconBg="#10B981"
-            label="Country"
-            value={profile?.countryName ?? "Not set"}
-            onPress={() => goTo("/settings/user")}
-            colors={colors}
-          />
-          <Separator colors={colors} />
-          <SettingsRow
-            icon="school-outline"
-            iconBg="#F59E0B"
-            label="Grade"
-            value={profile?.grade ?? "Not set"}
-            onPress={() => goTo("/settings/user")}
-            colors={colors}
-          />
         </View>
 
         {/* Account section */}
