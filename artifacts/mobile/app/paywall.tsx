@@ -1,11 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import type { PurchasesPackage } from "react-native-purchases";
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,388 +13,452 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { C, F } from "@/app/_components/tokens";
+import { useProfile } from "@/context/ProfileContext";
+import { useSession } from "@/context/SessionContext";
+import { getFreeScansRemainingToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
-import { useColors } from "@/hooks/useColors";
 
-const FEATURES = [
-  { icon: "camera", text: "Unlimited classwork scans" },
-  { icon: "sparkles", text: "AI-generated practice exercises" },
-  { icon: "language", text: "5 languages: EN, DE, FR, ES, NL" },
-  { icon: "trending-up", text: "3 difficulty levels" },
-  { icon: "book", text: "All subjects — Math, Science & more" },
-  { icon: "checkmark-circle", text: "Instant feedback on answers" },
+type BillingPeriod = "monthly" | "annual";
+type PlanId = "starter" | "premium";
+
+type Plan = {
+  id: PlanId;
+  name: string;
+  monthly: string;
+  annual: string;
+  cap: number;
+  packageIds: Record<BillingPeriod, string>;
+};
+
+const PLANS: Plan[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    monthly: "$4.99",
+    annual: "$49.90",
+    cap: 40,
+    packageIds: { monthly: "$rc_monthly", annual: "$rc_annual" },
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    monthly: "$9.99",
+    annual: "$99.90",
+    cap: 100,
+    packageIds: { monthly: "premium_monthly", annual: "premium_annual" },
+  },
 ];
 
+function getCopy(language?: string) {
+  if (language === "German") {
+    return {
+      title: "Wähle deinen StudySnap-Plan",
+      subtitle: "Ein Scan pro Tag bleibt kostenlos. Bildreiche Übungen sind im Abo monatlich begrenzt.",
+      monthly: "Monatlich",
+      annual: "Jährlich",
+      recommended: "Empfohlen",
+      imageRich: "bildreiche Übungen",
+      perMonth: "pro Monat",
+      saveAnnual: "2 Monate kostenlos mit Jahresabo",
+      subscribe: "Auswählen",
+      restore: "Kauf wiederherstellen",
+      freeScan: "Heutigen kostenlosen Scan nutzen",
+      purchaseFailed: "Der Kauf ist fehlgeschlagen. Bitte versuche es erneut.",
+      restoreFailed: "Käufe konnten nicht wiederhergestellt werden.",
+    };
+  }
+
+  return {
+    title: "Choose your StudySnap plan",
+    subtitle: "One scan per day stays free. Image-rich practice is capped monthly by plan.",
+    monthly: "Monthly",
+    annual: "Annual",
+    recommended: "Recommended",
+    imageRich: "image-rich practices",
+    perMonth: "per month",
+    saveAnnual: "2 months free with annual",
+    subscribe: "Get",
+    restore: "Restore purchase",
+    freeScan: "Use today's free scan",
+    purchaseFailed: "Purchase failed. Please try again.",
+    restoreFailed: "Could not restore purchases.",
+  };
+}
+
+function findPackage(
+  packages: PurchasesPackage[],
+  plan: Plan,
+  billing: BillingPeriod,
+) {
+  return packages.find((pkg) => pkg.identifier === plan.packageIds[billing]);
+}
+
+function displayPrice(plan: Plan, billing: BillingPeriod, pkg?: PurchasesPackage) {
+  return pkg?.product.priceString ?? (billing === "annual" ? plan.annual : plan.monthly);
+}
+
+function PlanCard({
+  plan,
+  billing,
+  pkg,
+  recommended,
+  isPurchasing,
+  onPurchase,
+  copy,
+}: {
+  plan: Plan;
+  billing: BillingPeriod;
+  pkg?: PurchasesPackage;
+  recommended: boolean;
+  isPurchasing: boolean;
+  onPurchase: (pkg: PurchasesPackage) => void;
+  copy: ReturnType<typeof getCopy>;
+}) {
+  const pressable = Boolean(pkg) && !isPurchasing;
+  const price = displayPrice(plan, billing, pkg);
+
+  return (
+    <View style={[styles.planCard, recommended && styles.planCardRecommended]}>
+      <View style={styles.planTopRow}>
+        <Text style={styles.planName}>{plan.name}</Text>
+        {recommended && (
+          <View style={styles.recommendedBadge}>
+            <Ionicons name="star" size={12} color={C.yellowDeep} />
+            <Text style={styles.recommendedText}>{copy.recommended}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.planPrice}>
+        {price}
+        <Text style={styles.planPriceUnit}>/{billing === "annual" ? "yr" : "mo"}</Text>
+      </Text>
+      <Text style={styles.planCap}>{plan.cap} {copy.imageRich}</Text>
+      <Text style={styles.planMeta}>{copy.perMonth}</Text>
+      {billing === "annual" && <Text style={styles.planSave}>{copy.saveAnnual}</Text>}
+
+      <Pressable
+        disabled={!pressable}
+        onPress={() => {
+          if (pkg) onPurchase(pkg);
+        }}
+        style={[styles.planButtonWrap, !pressable && { opacity: 0.55 }]}
+      >
+        <View style={styles.planButtonLedge} />
+        <View style={[styles.planButtonFace, recommended && styles.planButtonFacePremium]}>
+          {isPurchasing ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.planButtonText}>{copy.subscribe} {plan.name}</Text>
+          )}
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function PaywallScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { offerings, isSubscribed, purchase, restore, isPurchasing, isRestoring, isLoading } =
-    useSubscription();
-
+  const { profile } = useProfile();
+  const { sessions } = useSession();
+  const { offerings, isSubscribed, purchase, restore, isPurchasing, isRestoring } = useSubscription();
+  const [billing, setBilling] = useState<BillingPeriod>("annual");
+  const [toast, setToast] = useState<string | null>(null);
+  const copy = getCopy(profile?.language);
   const isWeb = Platform.OS === "web";
-  const top = isWeb ? 60 : insets.top;
-  const bottom = isWeb ? 24 : insets.bottom;
+  const top = isWeb ? 56 : insets.top;
+  const bottom = isWeb ? 28 : insets.bottom;
+  const freeScansRemaining = getFreeScansRemainingToday(sessions);
 
-  const [confirmVisible, setConfirmVisible] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const pkg = offerings?.current?.availablePackages?.[0];
-  const priceString = pkg?.product?.priceString ?? "$4.99";
-  const productTitle = pkg?.product?.title ?? "StudySnap Premium";
+  const packages = useMemo(
+    () => offerings?.current?.availablePackages ?? [],
+    [offerings?.current?.availablePackages],
+  );
 
   if (isSubscribed) {
     router.replace("/");
     return null;
   }
 
-  const handlePurchase = async () => {
-    if (!pkg) return;
-    if (__DEV__) {
-      setConfirmVisible(true);
-      return;
-    }
-    await doPurchase();
-  };
-
-  const doPurchase = async () => {
-    setConfirmVisible(false);
-    setError(null);
+  const doPurchase = async (pkg: PurchasesPackage) => {
+    setToast(null);
     try {
       await purchase(pkg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/");
-    } catch (e: any) {
-      if (e?.userCancelled) return;
-      setError("Purchase failed. Please try again.");
+    } catch (error) {
+      const maybeCancelled = error && typeof error === "object" && "userCancelled" in error;
+      if (maybeCancelled) return;
+      setToast(copy.purchaseFailed);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
-  const handleRestore = async () => {
-    setError(null);
+  const doRestore = async () => {
+    setToast(null);
     try {
       await restore();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (isSubscribed) router.replace("/");
+      router.replace("/");
     } catch {
-      setError("Could not restore purchases. Please try again.");
+      setToast(copy.restoreFailed);
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Dev-mode purchase confirmation modal */}
-      <Modal transparent visible={confirmVisible} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>Test Purchase</Text>
-            <Text style={[styles.modalBody, { color: colors.mutedForeground }]}>
-              This is a test environment purchase. No real payment will be charged.{"\n\n"}
-              Simulate purchasing <Text style={{ fontFamily: "Inter_700Bold" }}>{productTitle}</Text> for{" "}
-              <Text style={{ fontFamily: "Inter_700Bold" }}>{priceString}/month</Text>?
-            </Text>
-            <View style={styles.modalButtons}>
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: colors.muted }]}
-                onPress={() => setConfirmVisible(false)}
-              >
-                <Text style={[styles.modalBtnText, { color: colors.foreground }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalBtn, { backgroundColor: colors.primary }]}
-                onPress={doPurchase}
-              >
-                <Text style={[styles.modalBtnText, { color: "#fff" }]}>Confirm</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+    <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 32 }]}
+        contentContainerStyle={[styles.scroll, { paddingTop: top + 16, paddingBottom: bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <LinearGradient
-          colors={[colors.primary, "#6366F1", "#8B5CF6"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.hero, { paddingTop: top + 20 }]}
-        >
-          <Text style={styles.heroEmoji}>🎓</Text>
-          <Text style={styles.heroTitle}>StudySnap Premium</Text>
-          <Text style={styles.heroSub}>
-            Help your child ace their exams with unlimited AI-powered practice exercises
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.kicker}>STUDYSNAP PREMIUM</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.subtitle}>{copy.subtitle}</Text>
+        </View>
 
-          <View style={styles.priceBubble}>
-            {isLoading ? (
-              <ActivityIndicator color={colors.primary} size="small" />
-            ) : (
-              <>
-                <Text style={[styles.priceAmount, { color: colors.primary }]}>{priceString}</Text>
-                <Text style={[styles.pricePer, { color: colors.mutedForeground }]}>/month</Text>
-              </>
-            )}
-          </View>
-        </LinearGradient>
+        <View style={styles.toggle}>
+          {(["monthly", "annual"] as BillingPeriod[]).map((period) => {
+            const active = billing === period;
+            return (
+              <Pressable
+                key={period}
+                onPress={() => setBilling(period)}
+                style={[styles.toggleItem, active && styles.toggleItemActive]}
+              >
+                <Text style={[styles.toggleText, active && styles.toggleTextActive]}>
+                  {period === "monthly" ? copy.monthly : copy.annual}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-        {/* Feature list */}
-        <View style={[styles.featuresCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.featuresTitle, { color: colors.foreground }]}>Everything included</Text>
-          {FEATURES.map((f) => (
-            <View key={f.text} style={styles.featureRow}>
-              <View style={[styles.featureIcon, { backgroundColor: colors.primary + "15" }]}>
-                <Ionicons name={f.icon as any} size={18} color={colors.primary} />
-              </View>
-              <Text style={[styles.featureText, { color: colors.foreground }]}>{f.text}</Text>
-            </View>
+        <View style={styles.planGrid}>
+          {PLANS.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              billing={billing}
+              pkg={findPackage(packages, plan, billing)}
+              recommended={plan.id === "premium"}
+              isPurchasing={isPurchasing}
+              onPurchase={doPurchase}
+              copy={copy}
+            />
           ))}
         </View>
 
-        {/* Cancel note */}
-        <View style={[styles.noteCard, { backgroundColor: colors.muted }]}>
-          <Ionicons name="shield-checkmark-outline" size={18} color={colors.mutedForeground} />
-          <Text style={[styles.noteText, { color: colors.mutedForeground }]}>
-            Cancel anytime. Billed monthly. No long-term commitment.
-          </Text>
-        </View>
-
-        {/* Privacy note */}
-        <View style={[styles.noteCard, { backgroundColor: "#EFF6FF", borderWidth: 1, borderColor: "#BFDBFE" }]}>
-          <Ionicons name="lock-closed-outline" size={18} color="#3B82F6" />
-          <Text style={[styles.noteText, { color: "#1D4ED8" }]}>
-            <Text style={{ fontFamily: "Inter_700Bold" }}>Your privacy is protected.</Text>
-            {" "}All exercises, sessions, and your child's progress are saved only on this device. We don't use a cloud database or store any personal data on our servers.
-          </Text>
-        </View>
-
-        {error && (
-          <View style={[styles.errorCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
-            <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
+        {toast && (
+          <View style={styles.toast}>
+            <Ionicons name="alert-circle" size={18} color={C.error} />
+            <Text style={styles.toastText}>{toast}</Text>
           </View>
         )}
 
-        {/* CTA buttons */}
-        <View style={styles.ctaStack}>
-          <Pressable
-            onPress={handlePurchase}
-            disabled={isPurchasing || isLoading || !pkg}
-            style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-          >
-            <LinearGradient
-              colors={isPurchasing || !pkg ? ["#9CA3AF", "#6B7280"] : [colors.primary, "#6366F1"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.subscribeBtn}
-            >
-              {isPurchasing ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="star" size={18} color="#fff" />
-                  <Text style={styles.subscribeBtnText}>
-                    Subscribe for {priceString}/month
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
+        <Pressable onPress={doRestore} disabled={isRestoring} style={styles.restoreButton}>
+          {isRestoring ? (
+            <ActivityIndicator color={C.inkMuted} size="small" />
+          ) : (
+            <Text style={styles.restoreText}>{copy.restore}</Text>
+          )}
+        </Pressable>
 
-          <Pressable
-            onPress={handleRestore}
-            disabled={isRestoring}
-            style={styles.restoreBtn}
-          >
-            {isRestoring ? (
-              <ActivityIndicator size="small" color={colors.mutedForeground} />
-            ) : (
-              <Text style={[styles.restoreBtnText, { color: colors.mutedForeground }]}>
-                Restore previous purchase
-              </Text>
-            )}
+        {freeScansRemaining > 0 && (
+          <Pressable onPress={() => router.replace("/scan")} style={styles.freeScanButton}>
+            <Text style={styles.freeScanText}>{copy.freeScan}</Text>
           </Pressable>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { gap: 0 },
-  hero: {
-    alignItems: "center",
-    paddingHorizontal: 28,
-    paddingBottom: 48,
-    gap: 10,
+  screen: {
+    flex: 1,
+    backgroundColor: C.surface,
   },
-  heroEmoji: { fontSize: 52, marginBottom: 4 },
-  heroTitle: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-    textAlign: "center",
+  scroll: {
+    paddingHorizontal: 20,
+    gap: 20,
   },
-  heroSub: {
+  header: {
+    gap: 8,
+  },
+  kicker: {
+    fontFamily: F.bodyBold,
+    fontSize: 11,
+    color: C.inkMuted,
+    letterSpacing: 1.4,
+  },
+  title: {
+    fontFamily: F.display,
+    fontSize: 30,
+    lineHeight: 36,
+    color: C.ink,
+    letterSpacing: 0,
+  },
+  subtitle: {
+    fontFamily: F.bodyMedium,
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    color: "rgba(255,255,255,0.85)",
-    textAlign: "center",
     lineHeight: 22,
+    color: C.inkBody,
   },
-  priceBubble: {
+  toggle: {
     flexDirection: "row",
-    alignItems: "baseline",
-    backgroundColor: "#fff",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 30,
-    marginTop: 8,
-    gap: 4,
-    minWidth: 120,
-    justifyContent: "center",
-    minHeight: 52,
-  },
-  priceAmount: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-  },
-  pricePer: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  featuresCard: {
-    margin: 20,
-    marginTop: -24,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    gap: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  featuresTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-    marginBottom: 2,
-  },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureText: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    flex: 1,
-  },
-  noteCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginHorizontal: 20,
-    padding: 14,
+    backgroundColor: C.surfaceHigh,
     borderRadius: 12,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 4,
   },
-  noteText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
+  toggleItem: {
     flex: 1,
-    lineHeight: 18,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 8,
   },
-  errorCard: {
+  toggleItemActive: {
+    backgroundColor: C.card,
+  },
+  toggleText: {
+    fontFamily: F.bodySemi,
+    fontSize: 14,
+    color: C.inkMuted,
+  },
+  toggleTextActive: {
+    color: C.primary,
+  },
+  planGrid: {
+    gap: 14,
+  },
+  planCard: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 16,
+    gap: 10,
+    boxShadow: "0 2px 0 rgba(27, 28, 28, 0.10)",
+  },
+  planCardRecommended: {
+    borderColor: C.primary,
+    backgroundColor: "#FBFFF8",
+  },
+  planTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  planName: {
+    fontFamily: F.displaySemi,
+    fontSize: 21,
+    color: C.ink,
+    letterSpacing: 0,
+  },
+  recommendedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: C.yellowSoft,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  recommendedText: {
+    fontFamily: F.bodyBold,
+    fontSize: 11,
+    color: C.yellowDeep,
+  },
+  planPrice: {
+    fontFamily: F.display,
+    fontSize: 28,
+    color: C.primary,
+    letterSpacing: 0,
+  },
+  planPriceUnit: {
+    fontFamily: F.bodySemi,
+    fontSize: 14,
+    color: C.inkMuted,
+  },
+  planCap: {
+    fontFamily: F.bodyBold,
+    fontSize: 15,
+    color: C.ink,
+  },
+  planMeta: {
+    fontFamily: F.body,
+    fontSize: 13,
+    color: C.inkMuted,
+  },
+  planSave: {
+    fontFamily: F.bodySemi,
+    fontSize: 13,
+    color: C.yellowDeep,
+  },
+  planButtonWrap: {
+    marginTop: 6,
+  },
+  planButtonLedge: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 4,
+    borderRadius: 10,
+    backgroundColor: C.primaryShadow,
+  },
+  planButtonFace: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    marginBottom: 4,
+    backgroundColor: C.primary,
+  },
+  planButtonFacePremium: {
+    backgroundColor: C.primaryDark,
+  },
+  planButtonText: {
+    fontFamily: F.bodyBold,
+    fontSize: 15,
+    color: "#fff",
+  },
+  toast: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginHorizontal: 20,
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: "#FFF1F1",
+    borderColor: "rgba(186, 26, 26, 0.22)",
     borderWidth: 1,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    color: "#EF4444",
-    flex: 1,
-  },
-  ctaStack: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  subscribeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 18,
-    borderRadius: 18,
-  },
-  subscribeBtnText: {
-    fontSize: 17,
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-  },
-  restoreBtn: {
-    alignItems: "center",
-    padding: 12,
-  },
-  restoreBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  modalCard: {
-    width: "100%",
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "center",
-  },
-  modalBody: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 22,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  modalBtn: {
-    flex: 1,
-    padding: 14,
     borderRadius: 12,
-    alignItems: "center",
+    padding: 12,
   },
-  modalBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
+  toastText: {
+    flex: 1,
+    fontFamily: F.bodyMedium,
+    color: C.error,
+    fontSize: 13,
+  },
+  restoreButton: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  restoreText: {
+    fontFamily: F.bodySemi,
+    fontSize: 14,
+    color: C.inkMuted,
+  },
+  freeScanButton: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  freeScanText: {
+    fontFamily: F.bodySemi,
+    color: C.primary,
+    fontSize: 14,
   },
 });

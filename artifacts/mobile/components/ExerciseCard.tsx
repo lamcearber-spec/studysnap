@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -88,6 +89,7 @@ function OptionButton({
 export function ExerciseCard({ exercise, index, onAnswer, revealed }: ExerciseCardProps) {
   const colors = useColors();
   const [shortAnswer, setShortAnswer] = useState(exercise.userAnswer ?? "");
+  const [imageLoaded, setImageLoaded] = useState(false);
   const cardOpacity = useSharedValue(0);
 
   const animatedCardStyle = useAnimatedStyle(() => ({
@@ -115,6 +117,19 @@ export function ExerciseCard({ exercise, index, onAnswer, revealed }: ExerciseCa
           </Text>
         </View>
       </View>
+
+      {exercise.imageUrl && (
+        <View style={[styles.visualWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+          <Image
+            source={{ uri: exercise.imageUrl }}
+            style={styles.visualImage}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            onLoadEnd={() => setImageLoaded(true)}
+          />
+          {!imageLoaded && <View style={[styles.visualSkeleton, { backgroundColor: colors.muted }]} />}
+        </View>
+      )}
 
       <Text style={[styles.question, { color: colors.foreground }]}>{exercise.question}</Text>
 
@@ -193,6 +208,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_500Medium",
     lineHeight: 22,
+  },
+  visualWrap: {
+    minHeight: 160,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  visualImage: {
+    width: "100%",
+    minHeight: 160,
+  },
+  visualSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.65,
   },
   options: {
     gap: 8,

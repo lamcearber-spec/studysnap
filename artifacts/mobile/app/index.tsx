@@ -20,42 +20,14 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProfile } from "@/context/ProfileContext";
 import { useSession } from "@/context/SessionContext";
-import { DIFFICULTIES, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { getDifficultiesForLanguage, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { hasFreeScanAvailableToday } from "@/lib/freeScans";
+import { useSubscription } from "@/lib/revenuecat";
+import { useGetUsage, type Quota } from "@workspace/api-client-react";
+import { C, F } from "@/app/_components/tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const isWeb = Platform.OS === "web";
-
-// === Modern Schoolyard tokens (Stitch-generated rubric) ====================
-const C = {
-  surface: "#FAF9F6",
-  surfaceLow: "#F4F1ED",
-  surfaceHigh: "#EAE6E0",
-  card: "#FFFFFF",
-  ink: "#1B1C1C",
-  inkBody: "#42493E",
-  inkMuted: "#72796E",
-  hairline: "#C2C9BB",
-  primary: "#2D5A27",
-  primaryDark: "#154212",
-  primaryShadow: "#0F2F0C",
-  primaryFixedDim: "#A1D494",
-  primaryTint: "rgba(45,90,39,0.10)",
-  primaryBorderTint: "rgba(45,90,39,0.30)",
-  yellow: "#F7D060",
-  yellowDeep: "#745B00",
-  yellowSoft: "#FCE393",
-  yellowTint: "rgba(247,208,96,0.16)",
-  error: "#BA1A1A",
-};
-
-const F = {
-  display: "Epilogue_700Bold",
-  displaySemi: "Epilogue_600SemiBold",
-  body: "Inter_400Regular",
-  bodyMedium: "Inter_500Medium",
-  bodySemi: "Inter_600SemiBold",
-  bodyBold: "Inter_700Bold",
-};
 
 function getGreeting(name?: string): { text: string; emoji: string } {
   const hour = new Date().getHours();
@@ -71,6 +43,8 @@ function getGreeting(name?: string): { text: string; emoji: string } {
 //   - Press → face translateY +2px + ledge height 4→2px = "key pressed" feel.
 function ScanCTA() {
   const router = useRouter();
+  const { sessions } = useSession();
+  const { isSubscribed, isLoading: subscriptionLoading } = useSubscription();
   const press = useSharedValue(0);
 
   const faceStyle = useAnimatedStyle(() => ({
@@ -82,6 +56,10 @@ function ScanCTA() {
 
   const onPress = () => {
     if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!subscriptionLoading && !isSubscribed && !hasFreeScanAvailableToday(sessions)) {
+      router.push("/paywall");
+      return;
+    }
     router.push("/scan");
   };
 
@@ -140,6 +118,29 @@ function StreakCard({ streak, doneToday, totalToday }: {
             {doneToday}/{totalToday} exercises today{pct === 1 ? " · done!" : ""}
           </Text>
         </View>
+      </View>
+    </View>
+  );
+}
+
+function UsageChip({ quota, streak }: { quota: Quota; streak: number }) {
+  const usedPct = quota.limit <= 0 ? 0 : Math.min(1, quota.used / quota.limit);
+  const filledBlocks = Math.round(usedPct * 10);
+  const usageBlocks = Array.from({ length: 10 }, (_, index) => index < filledBlocks ? "█" : "░").join("");
+  const resetLabel = new Date(quota.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  return (
+    <View>
+      <View style={styles.kickerRow}>
+        <View style={styles.kickerPip} />
+        <Text style={styles.kicker}>DAILY HABIT</Text>
+      </View>
+      <View style={styles.usageChip}>
+        <Text style={styles.usageHeadline}>🔥 {streak} days in a row</Text>
+        <Text style={styles.usageBlocks}>{usageBlocks}</Text>
+        <Text style={styles.usageMeta}>
+          {quota.used} / {quota.limit} images this month · resets {resetLabel}
+        </Text>
       </View>
     </View>
   );
@@ -257,19 +258,19 @@ function EmptyState() {
   );
 }
 
-function SubjectChip({ id }: { id: string }) {
+function SubjectChip({ id, language }: { id: string; language?: string }) {
   return (
     <View style={styles.chip}>
       <Text style={styles.chipEmoji}>{getSubjectEmoji(id)}</Text>
-      <Text style={styles.chipLabel}>{getSubjectLabel(id)}</Text>
+      <Text style={styles.chipLabel}>{getSubjectLabel(id, language)}</Text>
     </View>
   );
 }
 
 function ProfileStrip({
-  grade, difficultyLabel, difficultyEmoji, subjects,
+  grade, difficultyLabel, difficultyEmoji, subjects, language,
 }: {
-  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[];
+  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[]; language?: string;
 }) {
   return (
     <View style={styles.profileStrip}>
@@ -290,7 +291,7 @@ function ProfileStrip({
         nestedScrollEnabled
         style={{ flex: 1 }}
       >
-        {subjects.slice(0, 5).map((id) => <SubjectChip key={id} id={id} />)}
+        {subjects.slice(0, 5).map((id) => <SubjectChip key={id} id={id} language={language} />)}
         {subjects.length > 5 && (
           <View style={[styles.chip, styles.chipOverflow]}>
             <Text style={[styles.chipLabel, { color: C.inkMuted }]}>+{subjects.length - 5}</Text>
@@ -336,12 +337,24 @@ export default function HomeScreen() {
   const router = useRouter();
   const { sessions, isLoading } = useSession();
   const { profile } = useProfile();
+  const { isSubscribed, appUserId } = useSubscription();
 
   const topPad = isWeb ? 56 : insets.top;
   const bottomPad = isWeb ? 28 : insets.bottom;
+  const usageQuery = useGetUsage(
+    { appUserId: appUserId ?? "" },
+    {
+      query: {
+        queryKey: ["usage", appUserId ?? ""],
+        enabled: Boolean(isSubscribed && appUserId),
+        staleTime: 30 * 1000,
+      },
+    }
+  );
 
   const greeting = getGreeting(profile?.name);
-  const difficultyInfo = DIFFICULTIES.find((d) => d.id === profile?.difficulty);
+  const difficulties = getDifficultiesForLanguage(profile?.language);
+  const difficultyInfo = difficulties.find((d) => d.id === profile?.difficulty);
   const totalCorrect = sessions.reduce((sum, s) => sum + s.totalCorrect, 0);
   const totalExercises = sessions.reduce((sum, s) => sum + s.exercises.length, 0);
   const accuracy = totalExercises > 0 ? Math.round((totalCorrect / totalExercises) * 100) : null;
@@ -350,6 +363,12 @@ export default function HomeScreen() {
   const todaysExercises = sessions
     .filter((s) => isSameDay(new Date(s.createdAt), new Date()))
     .reduce((sum, s) => sum + s.exercises.length, 0);
+
+  React.useEffect(() => {
+    if (isSubscribed && appUserId) {
+      usageQuery.refetch();
+    }
+  }, [appUserId, isSubscribed, sessions.length]);
 
   return (
     <View style={[styles.screen, { paddingTop: topPad }]}>
@@ -375,14 +394,19 @@ export default function HomeScreen() {
             difficultyLabel={difficultyInfo?.label ?? "Same level"}
             difficultyEmoji={difficultyInfo?.emoji ?? "⚡"}
             subjects={profile.subjects ?? []}
+            language={profile.language}
           />
+        )}
+
+        {isSubscribed && usageQuery.data && (
+          <UsageChip quota={usageQuery.data} streak={streak} />
         )}
 
         {/* Hero CTA */}
         <ScanCTA />
 
         {/* Streak (post-first-session only) */}
-        {sessions.length > 0 && (
+        {sessions.length > 0 && !usageQuery.data && (
           <StreakCard
             streak={streak}
             doneToday={todaysExercises}
@@ -407,7 +431,7 @@ export default function HomeScreen() {
                 <TrophyRow
                   key={session.id}
                   emoji={getSubjectEmoji(session.subject)}
-                  title={session.topic || getSubjectLabel(session.subject)}
+                  title={session.topic || getSubjectLabel(session.subject, profile?.language)}
                   correct={session.totalCorrect}
                   total={session.exercises.length}
                   dateLabel={relativeDate(new Date(session.createdAt))}
@@ -590,6 +614,32 @@ const styles = StyleSheet.create({
   streakBarFill: { height: "100%", backgroundColor: C.yellow, borderRadius: 999 },
   streakSub: {
     fontFamily: F.bodyMedium, fontSize: 12, color: C.inkBody, marginTop: 8,
+  },
+  usageChip: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 16,
+    gap: 8,
+    ...shadow(2),
+  },
+  usageHeadline: {
+    fontFamily: F.displaySemi,
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: 0,
+  },
+  usageBlocks: {
+    fontFamily: F.bodyBold,
+    fontSize: 16,
+    color: C.primary,
+    letterSpacing: 1,
+  },
+  usageMeta: {
+    fontFamily: F.bodyMedium,
+    fontSize: 12,
+    color: C.inkBody,
   },
 
   // Section head

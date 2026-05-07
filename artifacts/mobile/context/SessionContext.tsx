@@ -15,6 +15,7 @@ export interface Exercise {
   type: ExerciseType;
   options?: string[];
   answer?: string;
+  imageUrl?: string;
   userAnswer?: string;
   isCorrect?: boolean;
 }

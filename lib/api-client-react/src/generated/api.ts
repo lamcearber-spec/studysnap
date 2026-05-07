@@ -17,10 +17,16 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CheckUsageBody,
   ErrorResponse,
   GenerateExercisesRequest,
   GenerateExercisesResponse,
+  GetUsageParams,
   HealthStatus,
+  Quota,
+  QuotaExceededError,
+  RevenueCatWebhook200,
+  RevenueCatWebhookBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -109,6 +115,272 @@ export function useHealthCheck<
 }
 
 /**
+ * @summary Get current image usage
+ */
+export const getGetUsageUrl = (params: GetUsageParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/usage?${stringifiedParams}`
+    : `/api/usage`;
+};
+
+export const getUsage = async (
+  params: GetUsageParams,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getGetUsageUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetUsageQueryKey = (params?: GetUsageParams) => {
+  return [`/api/usage`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetUsageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getUsage>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetUsageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUsage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetUsageQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsage>>> = ({
+    signal,
+  }) => getUsage(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getUsage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetUsageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getUsage>>
+>;
+export type GetUsageQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get current image usage
+ */
+
+export function useGetUsage<
+  TData = Awaited<ReturnType<typeof getUsage>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: GetUsageParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getUsage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetUsageQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Check and reserve image usage
+ */
+export const getCheckUsageUrl = () => {
+  return `/api/usage/check`;
+};
+
+export const checkUsage = async (
+  checkUsageBody: CheckUsageBody,
+  options?: RequestInit,
+): Promise<Quota> => {
+  return customFetch<Quota>(getCheckUsageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(checkUsageBody),
+  });
+};
+
+export const getCheckUsageMutationOptions = <
+  TError = ErrorType<QuotaExceededError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkUsage>>,
+    TError,
+    { data: BodyType<CheckUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof checkUsage>>,
+  TError,
+  { data: BodyType<CheckUsageBody> },
+  TContext
+> => {
+  const mutationKey = ["checkUsage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof checkUsage>>,
+    { data: BodyType<CheckUsageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return checkUsage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CheckUsageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkUsage>>
+>;
+export type CheckUsageMutationBody = BodyType<CheckUsageBody>;
+export type CheckUsageMutationError = ErrorType<QuotaExceededError>;
+
+/**
+ * @summary Check and reserve image usage
+ */
+export const useCheckUsage = <
+  TError = ErrorType<QuotaExceededError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof checkUsage>>,
+    TError,
+    { data: BodyType<CheckUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof checkUsage>>,
+  TError,
+  { data: BodyType<CheckUsageBody> },
+  TContext
+> => {
+  return useMutation(getCheckUsageMutationOptions(options));
+};
+
+/**
+ * @summary RevenueCat webhook for subscription renewals and tier updates
+ */
+export const getRevenueCatWebhookUrl = () => {
+  return `/api/revenuecat/webhook`;
+};
+
+export const revenueCatWebhook = async (
+  revenueCatWebhookBody: RevenueCatWebhookBody,
+  options?: RequestInit,
+): Promise<RevenueCatWebhook200> => {
+  return customFetch<RevenueCatWebhook200>(getRevenueCatWebhookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(revenueCatWebhookBody),
+  });
+};
+
+export const getRevenueCatWebhookMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revenueCatWebhook>>,
+    TError,
+    { data: BodyType<RevenueCatWebhookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof revenueCatWebhook>>,
+  TError,
+  { data: BodyType<RevenueCatWebhookBody> },
+  TContext
+> => {
+  const mutationKey = ["revenueCatWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof revenueCatWebhook>>,
+    { data: BodyType<RevenueCatWebhookBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return revenueCatWebhook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RevenueCatWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revenueCatWebhook>>
+>;
+export type RevenueCatWebhookMutationBody = BodyType<RevenueCatWebhookBody>;
+export type RevenueCatWebhookMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary RevenueCat webhook for subscription renewals and tier updates
+ */
+export const useRevenueCatWebhook = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof revenueCatWebhook>>,
+    TError,
+    { data: BodyType<RevenueCatWebhookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof revenueCatWebhook>>,
+  TError,
+  { data: BodyType<RevenueCatWebhookBody> },
+  TContext
+> => {
+  return useMutation(getRevenueCatWebhookMutationOptions(options));
+};
+
+/**
  * @summary Generate exercises from a classwork image
  */
 export const getGenerateExercisesUrl = () => {
@@ -128,7 +400,7 @@ export const generateExercises = async (
 };
 
 export const getGenerateExercisesMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | QuotaExceededError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -169,13 +441,15 @@ export type GenerateExercisesMutationResult = NonNullable<
   Awaited<ReturnType<typeof generateExercises>>
 >;
 export type GenerateExercisesMutationBody = BodyType<GenerateExercisesRequest>;
-export type GenerateExercisesMutationError = ErrorType<ErrorResponse>;
+export type GenerateExercisesMutationError = ErrorType<
+  ErrorResponse | QuotaExceededError
+>;
 
 /**
  * @summary Generate exercises from a classwork image
  */
 export const useGenerateExercises = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<ErrorResponse | QuotaExceededError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

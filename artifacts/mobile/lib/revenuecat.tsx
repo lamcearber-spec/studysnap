@@ -1,14 +1,17 @@
 import Constants from "expo-constants";
 import React, { createContext, useContext } from "react";
 import { Platform } from "react-native";
-import Purchases from "react-native-purchases";
+import Purchases, { type PurchasesPackage } from "react-native-purchases";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 const REVENUECAT_TEST_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 
-export const REVENUECAT_ENTITLEMENT_IDENTIFIER = "premium";
+export type SubscriptionTier = "starter" | "premium";
+
+export const STARTER_ENTITLEMENT_IDENTIFIER = "starter";
+export const PREMIUM_ENTITLEMENT_IDENTIFIER = "premium";
 
 function getRevenueCatApiKey() {
   if (!REVENUECAT_TEST_API_KEY || !REVENUECAT_IOS_API_KEY || !REVENUECAT_ANDROID_API_KEY) {
@@ -45,7 +48,7 @@ function useSubscriptionContext() {
   });
 
   const purchaseMutation = useMutation({
-    mutationFn: async (packageToPurchase: any) => {
+    mutationFn: async (packageToPurchase: PurchasesPackage) => {
       const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
       return customerInfo;
     },
@@ -57,16 +60,25 @@ function useSubscriptionContext() {
     onSuccess: () => customerInfoQuery.refetch(),
   });
 
-  const isSubscribed =
-    customerInfoQuery.data?.entitlements.active?.[REVENUECAT_ENTITLEMENT_IDENTIFIER] !== undefined;
+  const activeEntitlements = customerInfoQuery.data?.entitlements.active;
+  const tier: SubscriptionTier | null =
+    activeEntitlements?.[PREMIUM_ENTITLEMENT_IDENTIFIER] !== undefined
+      ? "premium"
+      : activeEntitlements?.[STARTER_ENTITLEMENT_IDENTIFIER] !== undefined
+        ? "starter"
+        : null;
+  const isSubscribed = tier !== null;
 
   return {
     customerInfo: customerInfoQuery.data,
+    appUserId: customerInfoQuery.data?.originalAppUserId ?? null,
     offerings: offeringsQuery.data,
     isSubscribed,
+    tier,
     isLoading: customerInfoQuery.isLoading || offeringsQuery.isLoading,
     purchase: purchaseMutation.mutateAsync,
     restore: restoreMutation.mutateAsync,
+    showManageSubscriptions: () => Purchases.showManageSubscriptions(),
     isPurchasing: purchaseMutation.isPending,
     isRestoring: restoreMutation.isPending,
   };

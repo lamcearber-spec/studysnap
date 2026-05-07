@@ -9,9 +9,6 @@ export interface HealthStatus {
   status: string;
 }
 
-/**
- * Difficulty relative to classwork
- */
 export type GenerateExercisesRequestDifficulty =
   (typeof GenerateExercisesRequestDifficulty)[keyof typeof GenerateExercisesRequestDifficulty];
 
@@ -22,17 +19,14 @@ export const GenerateExercisesRequestDifficulty = {
 } as const;
 
 export interface GenerateExercisesRequest {
-  /** Base64-encoded image of the classwork page */
+  /** Base64-encoded JPEG of the classwork page */
   imageBase64: string;
-  /** Optional subject hint (e.g. "Math", "Science") */
+  /** RevenueCat app_user_id used for quota check */
+  appUserId: string;
   subject?: string;
-  /** Optional grade level (e.g. "Grade 3", "Year 5") */
   grade?: string;
-  /** Language for exercises (e.g. "English", "German", "French", "Spanish", "Dutch") */
   language?: string;
-  /** ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE") for curriculum alignment */
   countryCode?: string;
-  /** Difficulty relative to classwork */
   difficulty?: GenerateExercisesRequestDifficulty;
 }
 
@@ -46,18 +40,63 @@ export const ExerciseType = {
 
 export interface Exercise {
   id: string;
-  question: string;
   type: ExerciseType;
+  question: string;
   options?: string[];
   answer?: string;
+  /** Public URL of the edited image variant on R2. Present only if the exercise has a visual. */
+  imageUrl?: string;
+}
+
+export type QuotaTier = (typeof QuotaTier)[keyof typeof QuotaTier];
+
+export const QuotaTier = {
+  starter: "starter",
+  premium: "premium",
+} as const;
+
+export interface Quota {
+  used: number;
+  limit: number;
+  resetAt: string;
+  tier: QuotaTier;
 }
 
 export interface GenerateExercisesResponse {
   exercises: Exercise[];
   subject: string;
   topic: string;
+  quota: Quota;
 }
+
+export type QuotaExceededErrorError =
+  (typeof QuotaExceededErrorError)[keyof typeof QuotaExceededErrorError];
+
+export const QuotaExceededErrorError = {
+  QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
+} as const;
+
+export type QuotaExceededError = GenerateExercisesResponse & {
+  error: QuotaExceededErrorError;
+  quota: Quota;
+};
 
 export interface ErrorResponse {
   error: string;
 }
+
+export type GetUsageParams = {
+  appUserId: string;
+};
+
+export type CheckUsageBody = {
+  appUserId: string;
+  /** @minimum 0 */
+  imageCount: number;
+};
+
+export type RevenueCatWebhookBody = { [key: string]: unknown };
+
+export type RevenueCatWebhook200 = {
+  ok: boolean;
+};

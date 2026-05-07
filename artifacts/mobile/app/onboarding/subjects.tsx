@@ -11,7 +11,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SUBJECTS } from "@/constants/data";
+import {
+  getLanguageForCountry,
+  getSubjectsForLanguage,
+  shouldUseGermanContent,
+} from "@/constants/data";
 import { useColors } from "@/hooks/useColors";
 
 export default function OnboardingSubjects() {
@@ -28,6 +32,26 @@ export default function OnboardingSubjects() {
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 60 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
+  const language = getLanguageForCountry(params.countryCode, params.language);
+  const isGerman = shouldUseGermanContent(language, params.countryCode);
+  const subjects = getSubjectsForLanguage(language);
+  const copy = isGerman
+    ? {
+        step: "Schritt 3 von 4",
+        title: "Was lernst du?",
+        subtitle: "Wähle alle Fächer aus, für die du üben möchtest. Du kannst das später ändern.",
+        count: (amount: number) => `${amount} ${amount === 1 ? "Fach" : "Fächer"} ausgewählt`,
+        emptyCta: "Wähle mindestens ein Fach",
+        selectedCta: "Weiter",
+      }
+    : {
+        step: "Step 3 of 4",
+        title: "What do you study?",
+        subtitle: "Pick all the subjects you want practice for. You can change this later.",
+        count: (amount: number) => `${amount} subject${amount > 1 ? "s" : ""} selected`,
+        emptyCta: "Select at least one subject",
+        selectedCta: "Continue",
+      };
 
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -43,7 +67,7 @@ export default function OnboardingSubjects() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/onboarding/difficulty",
-      params: { ...params, subjects: selected.join(",") },
+      params: { ...params, language, subjects: selected.join(",") },
     });
   };
 
@@ -53,12 +77,10 @@ export default function OnboardingSubjects() {
         colors={[colors.primary, "#6366F1"]}
         style={[styles.header, { paddingTop: top + 20 }]}
       >
-        <Text style={styles.stepLabel}>Step 3 of 4</Text>
+        <Text style={styles.stepLabel}>{copy.step}</Text>
         <Text style={styles.headerEmoji}>📚</Text>
-        <Text style={styles.headerTitle}>What do you study?</Text>
-        <Text style={styles.headerSub}>
-          Pick all the subjects you want practice for. You can change this later.
-        </Text>
+        <Text style={styles.headerTitle}>{copy.title}</Text>
+        <Text style={styles.headerSub}>{copy.subtitle}</Text>
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((i) => (
             <View
@@ -74,7 +96,7 @@ export default function OnboardingSubjects() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.grid}>
-          {SUBJECTS.map((subject) => {
+          {subjects.map((subject) => {
             const isSelected = selected.includes(subject.id);
             return (
               <Pressable
@@ -110,7 +132,7 @@ export default function OnboardingSubjects() {
       <View style={[styles.footer, { paddingBottom: bottom + 16, backgroundColor: colors.background }]}>
         {selected.length > 0 && (
           <Text style={[styles.selectionCount, { color: colors.mutedForeground }]}>
-            {selected.length} subject{selected.length > 1 ? "s" : ""} selected
+            {copy.count(selected.length)}
           </Text>
         )}
         <Pressable
@@ -125,7 +147,7 @@ export default function OnboardingSubjects() {
             style={styles.continueBtn}
           >
             <Text style={styles.continueBtnText}>
-              {selected.length > 0 ? "Continue" : "Select at least one subject"}
+              {selected.length > 0 ? copy.selectedCta : copy.emptyCta}
             </Text>
           </LinearGradient>
         </Pressable>
