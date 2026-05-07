@@ -45,6 +45,7 @@ export default function OnboardingDifficulty() {
         step: "Schritt 4 von 4",
         title: "Wie schwer soll es sein?",
         subtitle: "Wie schwierig sollen die Übungen im Vergleich zu deinen Schulaufgaben sein?",
+        ritual: "Seite fotografieren → wir machen 8 Übungsfragen → dein Kind löst sie → du markierst ✓ oder ✗.",
         emptyCta: "Wähle einen Schwierigkeitsgrad",
         selectedCta: "Los geht's!",
       }
@@ -52,6 +53,7 @@ export default function OnboardingDifficulty() {
         step: "Step 4 of 4",
         title: "How hard should it be?",
         subtitle: "How difficult should the practice exercises be compared to your classwork?",
+        ritual: "Snap a page → we make 8 practice questions → your child works it out → you mark ✓ or ✗.",
         emptyCta: "Select a difficulty level",
         selectedCta: "Let's go!",
       };
@@ -85,6 +87,7 @@ export default function OnboardingDifficulty() {
         <Text style={styles.headerEmoji}>⚡</Text>
         <Text style={styles.headerTitle}>{copy.title}</Text>
         <Text style={styles.headerSub}>{copy.subtitle}</Text>
+        <Text style={styles.ritualSub}>{copy.ritual}</Text>
         <View style={styles.dotsRow}>
           {[0, 1, 2, 3].map((i) => (
             <View key={i} style={styles.dotActive} />
@@ -187,6 +190,14 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.8)",
     textAlign: "center",
     lineHeight: 20,
+  },
+  ritualSub: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "rgba(255,255,255,0.92)",
+    textAlign: "center",
+    lineHeight: 19,
+    marginTop: 4,
   },
   dotsRow: { flexDirection: "row", gap: 6, marginTop: 12 },
   dotActive: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" },

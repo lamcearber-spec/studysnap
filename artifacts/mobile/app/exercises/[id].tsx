@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React from "react";
 import {
   Alert,
   Platform,
@@ -13,60 +12,23 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { C, F } from "@/app/_components/tokens";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useSession } from "@/context/SessionContext";
-import { useColors } from "@/hooks/useColors";
+
+const isWeb = Platform.OS === "web";
 
 export default function ExercisesScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getSession, updateSession, deleteSession } = useSession();
-  const [revealed, setRevealed] = useState(false);
-
+  const { getSession, deleteSession } = useSession();
   const session = getSession(id);
-  const isWeb = Platform.OS === "web";
-  const topPad = isWeb ? 67 : insets.top;
-  const bottomPad = isWeb ? 34 : insets.bottom;
-
-  const handleAnswer = useCallback(
-    (exerciseId: string, answer: string) => {
-      if (!session) return;
-      const exercise = session.exercises.find((e) => e.id === exerciseId);
-      if (!exercise || exercise.userAnswer) return;
-
-      const isCorrect = exercise.answer?.toLowerCase().trim() === answer.toLowerCase().trim();
-      const updatedExercises = session.exercises.map((e) =>
-        e.id === exerciseId ? { ...e, userAnswer: answer, isCorrect } : e
-      );
-
-      const answeredCount = updatedExercises.filter((e) => e.userAnswer !== undefined).length;
-      const correctCount = updatedExercises.filter((e) => e.isCorrect === true).length;
-
-      updateSession({
-        ...session,
-        exercises: updatedExercises,
-        totalAnswered: answeredCount,
-        totalCorrect: correctCount,
-      });
-
-      if (isCorrect) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-    },
-    [session, updateSession]
-  );
-
-  const handleRevealAll = () => {
-    setRevealed(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
+  const topPad = isWeb ? 56 : insets.top;
+  const bottomPad = isWeb ? 28 : insets.bottom;
 
   const handleDelete = () => {
-    Alert.alert("Delete Session", "Are you sure you want to delete this session?", [
+    Alert.alert("Delete session", "Delete this worksheet session?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -81,207 +43,256 @@ export default function ExercisesScreen() {
 
   if (!session) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.navBar, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
-          <Pressable onPress={() => router.replace("/")} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+      <View style={[styles.screen, { paddingTop: topPad }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.replace("/")} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={24} color={C.ink} />
           </Pressable>
         </View>
         <View style={styles.notFound}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.mutedForeground} />
-          <Text style={[styles.notFoundText, { color: colors.foreground }]}>Session not found</Text>
+          <Ionicons name="alert-circle-outline" size={48} color={C.inkMuted} />
+          <Text style={styles.notFoundText}>Session not found</Text>
         </View>
       </View>
     );
   }
 
-  const answered = session.exercises.filter((e) => e.userAnswer !== undefined).length;
-  const total = session.exercises.length;
-  const accuracy = answered > 0 ? Math.round((session.totalCorrect / answered) * 100) : null;
-  const isDone = answered === total;
+  const correctCount = session.exercises.filter((exercise) => exercise.status === "correct").length;
+  const wrongCount = session.exercises.filter((exercise) => exercise.status === "wrong").length;
+  const pendingCount = Math.max(0, session.exercises.length - correctCount - wrongCount);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Nav */}
-      <View
-        style={[
-          styles.navBar,
-          { paddingTop: topPad + 8, backgroundColor: colors.background, borderBottomColor: colors.border },
-        ]}
-      >
-        <Pressable onPress={() => router.replace("/")} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+    <View style={[styles.screen, { paddingTop: topPad }]}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => router.replace("/")}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Back to home"
+        >
+          <Ionicons name="arrow-back" size={24} color={C.ink} />
         </Pressable>
-        <View style={styles.navCenter}>
-          <Text style={[styles.navTitle, { color: colors.foreground }]} numberOfLines={1}>
-            {session.subject}
-          </Text>
-          <Text style={[styles.navSub, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {session.topic}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerKicker}>WORKSHEET</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Worksheet · {session.topic}
           </Text>
         </View>
-        <Pressable onPress={handleDelete} style={styles.deleteBtn}>
-          <Ionicons name="trash-outline" size={20} color={colors.destructive} />
+        <Pressable
+          onPress={handleDelete}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel="Delete session"
+        >
+          <Ionicons name="trash-outline" size={21} color={C.error} />
         </Pressable>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 24 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 28 }]}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="automatic"
       >
-        {/* Source image + stats */}
-        <View style={styles.heroRow}>
-          <Image source={{ uri: session.imageUri }} style={styles.sourceThumbnail} contentFit="cover" />
-          <View style={styles.statsColumn}>
-            <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.statNum, { color: colors.primary }]}>{answered}/{total}</Text>
-              <Text style={[styles.statLbl, { color: colors.mutedForeground }]}>Answered</Text>
-            </View>
-            {accuracy !== null && (
-              <View style={[styles.statBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.statNum, { color: accuracy >= 70 ? colors.success : colors.accent }]}>
-                  {accuracy}%
-                </Text>
-                <Text style={[styles.statLbl, { color: colors.mutedForeground }]}>Accuracy</Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.contextCard}>
+          <Text style={styles.contextKicker}>{session.subject}</Text>
+          <Text style={styles.contextTitle}>{session.grade ?? "Practice worksheet"}</Text>
+          <Text style={styles.contextBody}>
+            Work through the questions, then mark each one together with ✓ or ✗.
+          </Text>
         </View>
 
-        {/* Progress bar */}
-        <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${(answered / total) * 100}%` as any,
-                backgroundColor: isDone ? colors.success : colors.primary,
-              },
-            ]}
-          />
+        <View style={styles.exerciseList}>
+          {session.exercises.map((exercise, index) => (
+            <ExerciseCard
+              key={exercise.id}
+              exercise={exercise}
+              sessionId={session.id}
+              index={index}
+              total={session.exercises.length}
+            />
+          ))}
         </View>
 
-        {/* Done banner */}
-        {isDone && (
-          <View style={[styles.doneBanner, { backgroundColor: colors.success + "15", borderColor: colors.success }]}>
-            <Ionicons name="trophy" size={20} color={colors.success} />
-            <Text style={[styles.doneText, { color: colors.success }]}>
-              {accuracy! >= 80
-                ? "Excellent work! You nailed it!"
-                : accuracy! >= 60
-                ? "Good job! Keep practicing!"
-                : "Keep going — practice makes perfect!"}
-            </Text>
+        <View style={styles.footerCard}>
+          <View style={styles.summaryRow}>
+            <SummaryPill icon="checkmark" color={C.primary} value={correctCount} label="correct" />
+            <SummaryPill icon="close" color={C.error} value={wrongCount} label="wrong" />
+            <SummaryPill icon="ellipse-outline" color={C.inkMuted} value={pendingCount} label="pending" />
           </View>
-        )}
-
-        {/* Reveal button */}
-        {!revealed && (
           <Pressable
-            onPress={handleRevealAll}
-            style={[styles.revealBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+            onPress={() => {
+              if (!isWeb) Haptics.selectionAsync();
+              router.replace("/");
+            }}
+            style={styles.doneWrap}
+            accessibilityRole="button"
           >
-            <Ionicons name="eye-outline" size={16} color={colors.mutedForeground} />
-            <Text style={[styles.revealText, { color: colors.mutedForeground }]}>Show all answers</Text>
+            <View style={styles.doneLedge} />
+            <View style={styles.doneFace}>
+              <Text style={styles.doneText}>Done</Text>
+            </View>
           </Pressable>
-        )}
-
-        {/* Exercises */}
-        {session.exercises.map((exercise, i) => (
-          <ExerciseCard
-            key={exercise.id}
-            exercise={exercise}
-            index={i}
-            onAnswer={handleAnswer}
-            revealed={revealed}
-          />
-        ))}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
+function SummaryPill({
+  icon,
+  color,
+  value,
+  label,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  color: string;
+  value: number;
+  label: string;
+}) {
+  return (
+    <View style={styles.summaryPill}>
+      <Ionicons name={icon} size={15} color={color} />
+      <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  navBar: {
+  screen: {
+    flex: 1,
+    backgroundColor: C.surface,
+  },
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
     borderBottomWidth: 1,
-    gap: 8,
+    borderBottomColor: C.hairline,
+    backgroundColor: C.surface,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    gap: 10,
   },
-  backBtn: { width: 40, height: 40, justifyContent: "center" },
-  deleteBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "flex-end" },
-  navCenter: { flex: 1, alignItems: "center" },
-  navTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
-  navSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  scrollContent: { padding: 16, gap: 14 },
-  heroRow: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-  },
-  sourceThumbnail: {
-    width: 90,
-    height: 120,
+  iconButton: {
+    width: 42,
+    height: 42,
     borderRadius: 12,
-  },
-  statsColumn: {
-    flex: 1,
-    gap: 8,
-  },
-  statBox: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  statNum: {
-    fontSize: 22,
-    fontFamily: "Inter_700Bold",
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    gap: 1,
   },
-  statLbl: {
+  headerKicker: {
+    fontFamily: F.bodyBold,
+    fontSize: 10,
+    color: C.inkMuted,
+    letterSpacing: 1.3,
+  },
+  headerTitle: {
+    fontFamily: F.displaySemi,
+    fontSize: 17,
+    lineHeight: 23,
+    color: C.ink,
+    letterSpacing: 0,
+    maxWidth: "100%",
+  },
+  scroll: {
+    padding: 16,
+    gap: 16,
+  },
+  contextCard: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 14,
+    gap: 4,
+    boxShadow: "0 2px 0 rgba(27, 28, 28, 0.06)",
+  },
+  contextKicker: {
+    fontFamily: F.bodyBold,
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
+    color: C.primary,
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
   },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
+  contextTitle: {
+    fontFamily: F.displaySemi,
+    fontSize: 18,
+    color: C.ink,
+    letterSpacing: 0,
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
+  contextBody: {
+    fontFamily: F.bodyMedium,
+    fontSize: 13,
+    lineHeight: 19,
+    color: C.inkBody,
   },
-  doneBanner: {
+  exerciseList: {
+    gap: 16,
+  },
+  footerCard: {
+    backgroundColor: C.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 14,
+    gap: 14,
+  },
+  summaryRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    gap: 8,
+  },
+  summaryPill: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    backgroundColor: C.surfaceLow,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 6,
+  },
+  summaryValue: {
+    fontFamily: F.bodyBold,
+    fontSize: 14,
+    fontVariant: ["tabular-nums"],
+  },
+  summaryLabel: {
+    fontFamily: F.bodySemi,
+    fontSize: 12,
+    color: C.inkMuted,
+  },
+  doneWrap: {
+    minHeight: 54,
+  },
+  doneLedge: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 4,
+    borderRadius: 12,
+    backgroundColor: C.primaryShadow,
+  },
+  doneFace: {
+    minHeight: 50,
+    borderRadius: 12,
+    marginBottom: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.primary,
   },
   doneText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-    flex: 1,
-  },
-  revealBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  revealText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
+    fontFamily: F.displaySemi,
+    fontSize: 16,
+    color: "#fff",
+    letterSpacing: 0,
   },
   notFound: {
     flex: 1,
@@ -290,7 +301,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   notFoundText: {
+    fontFamily: F.bodySemi,
     fontSize: 17,
-    fontFamily: "Inter_500Medium",
+    color: C.ink,
   },
 });
