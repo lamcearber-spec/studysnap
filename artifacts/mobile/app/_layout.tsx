@@ -19,6 +19,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppearanceProvider } from "@/context/AppearanceContext";
 import { ProfileProvider, useProfile } from "@/context/ProfileContext";
 import { SessionProvider } from "@/context/SessionContext";
 import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
@@ -93,19 +94,21 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <ProfileProvider>
-                <SessionProvider>
-                  <SubscriptionProvider>
-                    <RootLayoutNav />
-                  </SubscriptionProvider>
-                </SessionProvider>
-              </ProfileProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
+        <AppearanceProvider>
+          <QueryClientProvider client={queryClient}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <ProfileProvider>
+                  <SessionProvider>
+                    <SubscriptionProvider>
+                      <RootLayoutNav />
+                    </SubscriptionProvider>
+                  </SessionProvider>
+                </ProfileProvider>
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
+        </AppearanceProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

@@ -22,16 +22,14 @@ import {
 } from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
-import { useSubscription } from "@/lib/revenuecat";
-import { useGetUsage } from "@workspace/api-client-react";
 
-export default function SettingsScreen() {
+const isWeb = Platform.OS === "web";
+
+export default function UserSettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, updateProfile, clearProfile } = useProfile();
-  const { tier, isSubscribed, appUserId, showManageSubscriptions } = useSubscription();
-  const isWeb = Platform.OS === "web";
   const top = isWeb ? 67 : insets.top;
   const bottom = isWeb ? 24 : insets.bottom;
   const nameRef = useRef<TextInput>(null);
@@ -45,6 +43,9 @@ export default function SettingsScreen() {
 
   const selectedCountry = COUNTRIES.find((c) => c.code === countryCode);
   const selectedLanguage = selectedCountry?.language ?? profile?.language ?? "English";
+  const gradeGroups = getGradeGroupsForCountry(countryCode);
+  const subjectsList = getSubjectsForLanguage(selectedLanguage);
+  const difficulties = getDifficultiesForLanguage(selectedLanguage);
 
   const toggleSubject = (id: string) => {
     setSubjects((prev) =>
@@ -71,11 +72,9 @@ export default function SettingsScreen() {
     if (!next) return;
     setCountryCode(code);
     setIsDirty(true);
-    // Reset grade if it doesn't exist in the new country's grade groups
     const nextGroups = getGradeGroupsForCountry(code);
     const allGrades: string[] = nextGroups.flatMap((g) => [...g.grades]);
     if (grade && !allGrades.includes(grade)) setGrade("");
-    // Keep only subjects valid for the new language
     const nextSubjects = getSubjectsForLanguage(next.language);
     const validIds = new Set<string>(nextSubjects.map((s) => s.id));
     setSubjects((prev) => prev.filter((id) => validIds.has(id)));
@@ -127,33 +126,13 @@ export default function SettingsScreen() {
     );
   };
 
-  const gradeGroups = getGradeGroupsForCountry(countryCode);
-  const subjectsList = getSubjectsForLanguage(selectedLanguage);
-  const difficulties = getDifficultiesForLanguage(selectedLanguage);
-  const usageQuery = useGetUsage(
-    { appUserId: appUserId ?? "" },
-    {
-      query: {
-        queryKey: ["usage", appUserId ?? ""],
-        enabled: Boolean(isSubscribed && appUserId),
-        staleTime: 30 * 1000,
-      },
-    }
-  );
-  const usage = usageQuery.data;
-  const usagePct = usage ? Math.min(1, usage.used / usage.limit) : 0;
-  const resetLabel = usage
-    ? new Date(usage.resetAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-    : null;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Nav bar */}
       <View style={[styles.navBar, { paddingTop: top + 8, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.navTitle, { color: colors.foreground }]}>Settings</Text>
+        <Text style={[styles.navTitle, { color: colors.foreground }]}>User</Text>
         <Pressable
           onPress={handleSave}
           disabled={!isDirty}
@@ -167,79 +146,7 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Country */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Country</Text>
-          <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
-            Sets the language and curriculum for exercises
-          </Text>
-          <View style={styles.countryGrid}>
-            {COUNTRIES.map((c) => {
-              const isSelected = countryCode === c.code;
-              return (
-                <Pressable
-                  key={c.code}
-                  style={[
-                    styles.countryChip,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => selectCountry(c.code)}
-                >
-                  <Text style={styles.countryFlag}>{c.flag}</Text>
-                  <Text
-                    style={[styles.countryName, { color: isSelected ? "#fff" : colors.foreground }]}
-                    numberOfLines={1}
-                  >
-                    {c.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {isSubscribed && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Plan & usage</Text>
-            <View style={[styles.planCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.planHeader}>
-                <View>
-                  <Text style={[styles.planLabel, { color: colors.mutedForeground }]}>Current tier</Text>
-                  <Text style={[styles.planTier, { color: colors.foreground }]}>
-                    {tier === "premium" ? "Premium" : "Starter"}
-                  </Text>
-                </View>
-                <Pressable onPress={() => router.push("/paywall")} style={styles.planLink}>
-                  <Text style={[styles.planLinkText, { color: colors.primary }]}>Switch</Text>
-                </Pressable>
-              </View>
-
-              {usage && (
-                <>
-                  <View style={[styles.usageTrack, { backgroundColor: colors.muted }]}>
-                    <View style={[styles.usageFill, { backgroundColor: colors.primary, width: `${usagePct * 100}%` as any }]} />
-                  </View>
-                  <Text style={[styles.usageText, { color: colors.mutedForeground }]}>
-                    {usage.used} / {usage.limit} images this month · resets {resetLabel}
-                  </Text>
-                </>
-              )}
-
-              <Pressable
-                onPress={() => showManageSubscriptions()}
-                style={[styles.manageButton, { borderColor: colors.border }]}
-              >
-                <Ionicons name="card-outline" size={17} color={colors.primary} />
-                <Text style={[styles.manageText, { color: colors.primary }]}>Manage subscription</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* Student name */}
+        {/* Student Name */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Student Name</Text>
           <Pressable
@@ -270,6 +177,40 @@ export default function SettingsScreen() {
               maxLength={30}
             />
           </Pressable>
+        </View>
+
+        {/* Country */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Country</Text>
+          <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
+            Sets the language and curriculum for exercises
+          </Text>
+          <View style={styles.countryGrid}>
+            {COUNTRIES.map((c) => {
+              const isSelected = countryCode === c.code;
+              return (
+                <Pressable
+                  key={c.code}
+                  style={[
+                    styles.countryChip,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => selectCountry(c.code)}
+                >
+                  <Text style={styles.countryFlag}>{c.flag}</Text>
+                  <Text
+                    style={[styles.countryChipName, { color: isSelected ? "#fff" : colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {c.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {/* Grade */}
@@ -365,10 +306,7 @@ export default function SettingsScreen() {
                 >
                   <Text style={styles.subjectEmoji}>{subject.emoji}</Text>
                   <Text
-                    style={[
-                      styles.subjectLabel,
-                      { color: isSelected ? "#fff" : colors.foreground },
-                    ]}
+                    style={[styles.subjectLabel, { color: isSelected ? "#fff" : colors.foreground }]}
                     numberOfLines={2}
                   >
                     {subject.label}
@@ -407,6 +345,24 @@ const styles = StyleSheet.create({
   saveBtn: { paddingHorizontal: 4, height: 40, justifyContent: "center" },
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   scrollContent: { padding: 20, gap: 28 },
+  section: { gap: 14 },
+  sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  sectionSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },
+  nameInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    padding: 0,
+  },
   countryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   countryChip: {
     flexDirection: "row",
@@ -418,38 +374,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   countryFlag: { fontSize: 18 },
-  countryName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  section: { gap: 14 },
-  sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
-  sectionSub: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },
-  planCard: {
-    borderRadius: 14,
-    borderWidth: 1.5,
-    padding: 14,
-    gap: 12,
-  },
-  planHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  planLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
-  planTier: { fontSize: 18, fontFamily: "Inter_700Bold", marginTop: 2 },
-  planLink: { paddingHorizontal: 8, paddingVertical: 6 },
-  planLinkText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  usageTrack: { height: 8, borderRadius: 999, overflow: "hidden" },
-  usageFill: { height: "100%", borderRadius: 999 },
-  usageText: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  manageButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-  },
-  manageText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  countryChipName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   gradeGroup: { gap: 8 },
   groupLabel: {
     fontSize: 12,
@@ -489,21 +414,6 @@ const styles = StyleSheet.create({
   },
   subjectEmoji: { fontSize: 26 },
   subjectLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  nameInputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    gap: 10,
-  },
-  nameInput: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: "Inter_500Medium",
-    padding: 0,
-  },
   resetBtn: {
     flexDirection: "row",
     alignItems: "center",
