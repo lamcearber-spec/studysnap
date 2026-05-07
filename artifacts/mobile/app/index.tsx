@@ -19,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProfile } from "@/context/ProfileContext";
-import { useSession } from "@/context/SessionContext";
+import { type Session, useSession } from "@/context/SessionContext";
 import { getDifficultiesForLanguage, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
@@ -174,21 +174,56 @@ function StatCard({ label, value, valueColor }: { label: string; value: string; 
   );
 }
 
+function getReviewCounts(session: Session) {
+  const total = session.exercises.length;
+  const hasStatuses = session.exercises.some((exercise) => exercise.status !== undefined);
+
+  if (!hasStatuses) {
+    const answered = Math.min(total, Math.max(0, session.totalAnswered));
+    const correct = Math.min(answered, Math.max(0, session.totalCorrect));
+    return {
+      total,
+      answered,
+      correct,
+      wrong: Math.max(0, answered - correct),
+      pending: Math.max(0, total - answered),
+    };
+  }
+
+  const correct = session.exercises.filter((exercise) => exercise.status === "correct").length;
+  const wrong = session.exercises.filter((exercise) => exercise.status === "wrong").length;
+  const answered = correct + wrong;
+  return {
+    total,
+    answered,
+    correct,
+    wrong,
+    pending: Math.max(0, total - answered),
+  };
+}
+
 // Trophy row — tactile, three-tier (PERFECT / HIGH / REGULAR), pressable.
 function TrophyRow({
-  emoji, title, correct, total, dateLabel, onPress,
+  emoji, title, correct, answered, pending, total, dateLabel, onPress,
 }: {
-  emoji: string; title: string; correct: number; total: number; dateLabel: string;
+  emoji: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
   onPress: () => void;
 }) {
-  const pct = total === 0 ? 0 : Math.round((correct / total) * 100);
-  const isPerfect = pct === 100;
-  const isHigh = !isPerfect && pct >= 80;
+  const pct = answered === 0 ? 0 : Math.round((correct / answered) * 100);
+  const tier =
+    answered === 0 ? "pending"
+    : pct === 100 ? "perfect"
+    : pct >= 80 ? "high"
+    : "regular";
+  const isPending = tier === "pending";
+  const isPerfect = tier === "perfect";
+  const isHigh = tier === "high";
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const cardStyle = [
     styles.trophyCard,
+    isPending && styles.trophyCardPending,
     isPerfect && styles.trophyCardPerfect,
     animatedStyle,
   ];
@@ -208,7 +243,11 @@ function TrophyRow({
         onPress();
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${correct} of ${total} correct, ${pct} percent, ${dateLabel}`}
+      accessibilityLabel={
+        isPending
+          ? `${title}, awaiting review, ${pending} of ${total} pending, ${dateLabel}`
+          : `${title}, ${correct} of ${answered} correct, ${pct} percent, ${dateLabel}`
+      }
     >
       {isHigh && <View style={styles.trophyLeftRail} />}
       <View style={emojiWrapStyle}>
@@ -224,14 +263,20 @@ function TrophyRow({
           )}
         </View>
         <Text style={styles.trophyMeta}>
-          <Text style={[
-            styles.trophyCorrect,
-            isPerfect && { color: C.yellowDeep },
-            isHigh && { color: C.primary },
-          ]}>
-            {correct}/{total} correct
-          </Text>
-          <Text style={styles.trophyMetaDim}>{"  ·  "}{pct}%</Text>
+          {isPending ? (
+            <Text style={styles.trophyAwaiting}>Awaiting review · {pending} of {total}</Text>
+          ) : (
+            <>
+              <Text style={[
+                styles.trophyCorrect,
+                isPerfect && { color: C.yellowDeep },
+                isHigh && { color: C.primary },
+              ]}>
+                {correct}/{answered} correct
+              </Text>
+              <Text style={styles.trophyMetaDim}>{"  ·  "}{pct}%</Text>
+            </>
+          )}
           <Text style={styles.trophyMetaDim}>{"  ·  "}{dateLabel}</Text>
         </Text>
       </View>
@@ -355,9 +400,20 @@ export default function HomeScreen() {
   const greeting = getGreeting(profile?.name);
   const difficulties = getDifficultiesForLanguage(profile?.language);
   const difficultyInfo = difficulties.find((d) => d.id === profile?.difficulty);
-  const totalCorrect = sessions.reduce((sum, s) => sum + s.totalCorrect, 0);
   const totalExercises = sessions.reduce((sum, s) => sum + s.exercises.length, 0);
-  const accuracy = totalExercises > 0 ? Math.round((totalCorrect / totalExercises) * 100) : null;
+  const reviewedTotals = sessions.reduce(
+    (acc, session) => {
+      const counts = getReviewCounts(session);
+      return {
+        correct: acc.correct + counts.correct,
+        answered: acc.answered + counts.answered,
+      };
+    },
+    { correct: 0, answered: 0 },
+  );
+  const accuracy = reviewedTotals.answered > 0
+    ? Math.round((reviewedTotals.correct / reviewedTotals.answered) * 100)
+    : null;
 
   const streak = computeStreak(sessions.map((s) => s.createdAt));
   const todaysExercises = sessions
@@ -427,17 +483,22 @@ export default function HomeScreen() {
           <View>
             <SectionHead kicker="RECENT" title="Trophy shelf" />
             <View style={{ gap: 12 }}>
-              {sessions.slice(0, 5).map((session) => (
-                <TrophyRow
-                  key={session.id}
-                  emoji={getSubjectEmoji(session.subject)}
-                  title={session.topic || getSubjectLabel(session.subject, profile?.language)}
-                  correct={session.totalCorrect}
-                  total={session.exercises.length}
-                  dateLabel={relativeDate(new Date(session.createdAt))}
-                  onPress={() => router.push(`/exercises/${session.id}`)}
-                />
-              ))}
+              {sessions.slice(0, 5).map((session) => {
+                const counts = getReviewCounts(session);
+                return (
+                  <TrophyRow
+                    key={session.id}
+                    emoji={getSubjectEmoji(session.subject)}
+                    title={session.topic || getSubjectLabel(session.subject, profile?.language)}
+                    correct={counts.correct}
+                    answered={counts.answered}
+                    pending={counts.pending}
+                    total={counts.total}
+                    dateLabel={relativeDate(new Date(session.createdAt))}
+                    onPress={() => router.push(`/exercises/${session.id}`)}
+                  />
+                );
+              })}
             </View>
           </View>
         )}
@@ -675,6 +736,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...shadow(1),
   },
+  trophyCardPending: {
+    backgroundColor: "#FFFDF4",
+    borderColor: "rgba(116,91,0,0.16)",
+  },
   trophyCardPerfect: {
     backgroundColor: C.yellowTint,
     borderColor: "rgba(116,91,0,0.22)",
@@ -712,6 +777,7 @@ const styles = StyleSheet.create({
   },
   trophyMeta: { fontFamily: F.body, fontSize: 12, color: C.inkMuted, marginTop: 4 },
   trophyCorrect: { fontFamily: F.bodySemi, color: C.ink },
+  trophyAwaiting: { fontFamily: F.bodySemi, fontSize: 12, color: C.inkMuted },
   trophyMetaDim: { color: C.inkMuted },
 
   // Empty

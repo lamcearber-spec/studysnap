@@ -1,125 +1,185 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Exercise } from "@/context/SessionContext";
-import { useColors } from "@/hooks/useColors";
+import { C, F } from "@/app/_components/tokens";
+import { Exercise, ExerciseStatus, useSession } from "@/context/SessionContext";
 
-interface ExerciseCardProps {
+type ExerciseCardProps = {
   exercise: Exercise;
+  sessionId: string;
   index: number;
-  onAnswer: (exerciseId: string, answer: string) => void;
-  revealed: boolean;
-}
+  total: number;
+};
+
+type GradeKind = "correct" | "wrong";
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const isWeb = Platform.OS === "web";
 
-function OptionButton({
-  option,
-  isSelected,
-  isCorrect,
-  isWrong,
-  revealed,
+function normalize(value?: string) {
+  return value?.trim().toLocaleLowerCase() ?? "";
+}
+
+function nextStatus(current: ExerciseStatus, target: GradeKind): ExerciseStatus {
+  return current === target ? "pending" : target;
+}
+
+function notifyStatus(status: ExerciseStatus) {
+  if (isWeb || status === "pending") return;
+  const feedback = status === "correct"
+    ? Haptics.NotificationFeedbackType.Success
+    : Haptics.NotificationFeedbackType.Warning;
+  Haptics.notificationAsync(feedback);
+}
+
+function GradeButton({
+  kind,
+  active,
   onPress,
 }: {
-  option: string;
-  isSelected: boolean;
-  isCorrect: boolean;
-  isWrong: boolean;
-  revealed: boolean;
+  kind: GradeKind;
+  active: boolean;
   onPress: () => void;
 }) {
-  const colors = useColors();
+  const press = useSharedValue(0);
   const scale = useSharedValue(1);
+  const isPositive = kind === "correct";
+  const color = isPositive ? C.primary : C.error;
+  const icon: IconName = isPositive ? "checkmark" : "close";
+  const label = isPositive ? "Correct" : "Wrong";
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const wrapStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-
-  let bg = colors.muted;
-  let border = colors.border;
-  let textColor = colors.foreground;
-
-  if (isSelected && isCorrect) {
-    bg = colors.success + "20";
-    border = colors.success;
-    textColor = colors.success;
-  } else if (isSelected && isWrong) {
-    bg = colors.destructive + "20";
-    border = colors.destructive;
-    textColor = colors.destructive;
-  } else if (revealed && isCorrect) {
-    bg = colors.success + "15";
-    border = colors.success;
-    textColor = colors.success;
-  } else if (isSelected) {
-    bg = colors.primary + "15";
-    border = colors.primary;
-    textColor = colors.primary;
-  }
+  const faceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(press.value, [0, 1], [0, 2]) }],
+  }));
+  const ledgeStyle = useAnimatedStyle(() => ({
+    height: interpolate(press.value, [0, 1], [4, 2]),
+  }));
 
   return (
     <AnimatedPressable
-      style={animatedStyle}
-      onPressIn={() => { scale.value = withSpring(0.97); }}
-      onPressOut={() => { scale.value = withSpring(1); }}
+      style={[styles.gradeWrap, wrapStyle]}
+      onPressIn={() => {
+        press.value = withTiming(1, { duration: 70 });
+        scale.value = withSpring(0.97, { stiffness: 320, damping: 20 });
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, { stiffness: 320, damping: 20 });
+        scale.value = withSpring(1, { stiffness: 320, damping: 20 });
+      }}
       onPress={onPress}
-      disabled={revealed}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
     >
-      <View style={[styles.option, { backgroundColor: bg, borderColor: border }]}>
-        <Text style={[styles.optionText, { color: textColor }]}>{option}</Text>
-        {revealed && isCorrect && (
-          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-        )}
-        {isSelected && isWrong && (
-          <Ionicons name="close-circle" size={18} color={colors.destructive} />
-        )}
-      </View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.gradeLedge,
+          { backgroundColor: active ? (isPositive ? C.primaryShadow : "#7A1111") : C.hairline },
+          ledgeStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.gradeFace,
+          {
+            backgroundColor: active ? color : C.card,
+            borderColor: color,
+          },
+          faceStyle,
+        ]}
+      >
+        <Ionicons name={icon} size={20} color={active ? "#fff" : color} />
+        <Text style={[styles.gradeText, { color: active ? "#fff" : color }]}>{label}</Text>
+      </Animated.View>
     </AnimatedPressable>
   );
 }
 
-export function ExerciseCard({ exercise, index, onAnswer, revealed }: ExerciseCardProps) {
-  const colors = useColors();
-  const [shortAnswer, setShortAnswer] = useState(exercise.userAnswer ?? "");
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const cardOpacity = useSharedValue(0);
-
-  const animatedCardStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(1, { duration: 300 + index * 80 }),
-  }));
-
-  const handleOptionSelect = (option: string) => {
-    if (revealed) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onAnswer(exercise.id, option);
-  };
-
-  const isMultipleChoice = exercise.type === "multiple-choice";
-  const isShortAnswer = exercise.type === "short-answer" || exercise.type === "fill-blank";
+function AnswerReveal({ exercise }: { exercise: Exercise }) {
+  const hasOptions = exercise.type === "multiple-choice" && exercise.options?.length;
+  const answer = exercise.answer ?? "No answer provided";
 
   return (
-    <Animated.View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, animatedCardStyle]}>
-      <View style={styles.header}>
-        <View style={[styles.indexBadge, { backgroundColor: colors.primary + "15" }]}>
-          <Text style={[styles.indexText, { color: colors.primary }]}>{index + 1}</Text>
+    <View style={styles.answerCard}>
+      <Text style={styles.answerLabel}>ANSWER</Text>
+      {hasOptions ? (
+        <View style={styles.answerOptions}>
+          {exercise.options?.map((option) => {
+            const isAnswer = normalize(option) === normalize(exercise.answer);
+            return (
+              <View
+                key={option}
+                style={[
+                  styles.answerOption,
+                  isAnswer ? styles.answerOptionCorrect : styles.answerOptionDim,
+                ]}
+              >
+                <View style={styles.answerIconSlot}>
+                  {isAnswer && <Ionicons name="checkmark-circle" size={18} color={C.primary} />}
+                </View>
+                <Text style={[styles.answerOptionText, !isAnswer && styles.answerOptionTextDim]}>
+                  {option}
+                </Text>
+              </View>
+            );
+          })}
+          {!exercise.options?.some((option) => normalize(option) === normalize(exercise.answer)) && (
+            <Text style={styles.answerText}>{answer}</Text>
+          )}
         </View>
-        <View style={[styles.typeBadge, { backgroundColor: colors.muted }]}>
-          <Text style={[styles.typeText, { color: colors.mutedForeground }]}>
-            {exercise.type === "multiple-choice" ? "Multiple Choice" : exercise.type === "fill-blank" ? "Fill in Blank" : "Short Answer"}
-          </Text>
-        </View>
+      ) : (
+        <Text style={styles.answerText}>{answer}</Text>
+      )}
+    </View>
+  );
+}
+
+export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCardProps) {
+  const { setExerciseStatus } = useSession();
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const status = exercise.status ?? "pending";
+  const cardOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    cardOpacity.value = withTiming(1, { duration: 260 + index * 35 });
+  }, [cardOpacity, index]);
+
+  const cardStyle = useAnimatedStyle(() => ({ opacity: cardOpacity.value }));
+
+  const setStatus = async (target: GradeKind) => {
+    const updated = nextStatus(status, target);
+    notifyStatus(updated);
+    await setExerciseStatus(sessionId, exercise.id, updated);
+  };
+
+  return (
+    <Animated.View style={[styles.card, cardStyle]}>
+      <View style={styles.topRow}>
+        <Text style={styles.kicker}>{String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</Text>
+        <View style={[styles.statusDot, status !== "pending" && {
+          backgroundColor: status === "correct" ? C.primary : C.error,
+        }]} />
       </View>
 
+      <Text style={styles.question}>{exercise.question}</Text>
+
       {exercise.imageUrl && (
-        <View style={[styles.visualWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+        <View style={styles.visualWrap}>
           <Image
             source={{ uri: exercise.imageUrl }}
             style={styles.visualImage}
@@ -127,142 +187,195 @@ export function ExerciseCard({ exercise, index, onAnswer, revealed }: ExerciseCa
             cachePolicy="memory-disk"
             onLoadEnd={() => setImageLoaded(true)}
           />
-          {!imageLoaded && <View style={[styles.visualSkeleton, { backgroundColor: colors.muted }]} />}
+          {!imageLoaded && <View style={styles.visualSkeleton} />}
         </View>
       )}
 
-      <Text style={[styles.question, { color: colors.foreground }]}>{exercise.question}</Text>
-
-      {isMultipleChoice && exercise.options && (
-        <View style={styles.options}>
-          {exercise.options.map((opt, i) => {
-            const isSelected = exercise.userAnswer === opt;
-            const isCorrect = exercise.answer === opt;
-            const isWrong = isSelected && !isCorrect;
-            return (
-              <OptionButton
-                key={i}
-                option={opt}
-                isSelected={isSelected}
-                isCorrect={isCorrect}
-                isWrong={isWrong}
-                revealed={revealed}
-                onPress={() => handleOptionSelect(opt)}
-              />
-            );
-          })}
-        </View>
+      {!showAnswer ? (
+        <Pressable
+          onPress={() => {
+            setShowAnswer(true);
+            if (!isWeb) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={styles.showAnswerButton}
+          accessibilityRole="button"
+        >
+          <Ionicons name="eye-outline" size={16} color={C.primary} />
+          <Text style={styles.showAnswerText}>Show answer</Text>
+        </Pressable>
+      ) : (
+        <AnswerReveal exercise={exercise} />
       )}
 
-      {isShortAnswer && revealed && exercise.answer && (
-        <View style={[styles.answerBox, { backgroundColor: colors.success + "15", borderColor: colors.success }]}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={[styles.answerText, { color: colors.success }]}>{exercise.answer}</Text>
-        </View>
-      )}
-
-      {revealed && exercise.type === "multiple-choice" && exercise.userAnswer && exercise.answer !== exercise.userAnswer && (
-        <View style={[styles.answerHint, { backgroundColor: colors.success + "15" }]}>
-          <Text style={[styles.answerHintLabel, { color: colors.mutedForeground }]}>Correct answer:</Text>
-          <Text style={[styles.answerHintText, { color: colors.success }]}>{exercise.answer}</Text>
-        </View>
-      )}
+      <View style={styles.gradeRow}>
+        <GradeButton
+          kind="correct"
+          active={status === "correct"}
+          onPress={() => { setStatus("correct"); }}
+        />
+        <GradeButton
+          kind="wrong"
+          active={status === "wrong"}
+          onPress={() => { setStatus("wrong"); }}
+        />
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-    gap: 12,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  indexBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  indexText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-  },
-  question: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    lineHeight: 22,
-  },
-  visualWrap: {
-    minHeight: 160,
+    backgroundColor: C.card,
     borderRadius: 12,
     borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 16,
+    gap: 14,
+    boxShadow: "0 2px 0 rgba(27, 28, 28, 0.08)",
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  kicker: {
+    fontFamily: F.bodyBold,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 1.4,
+    color: C.inkMuted,
+  },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: C.surfaceHigh,
+  },
+  question: {
+    fontFamily: F.displaySemi,
+    fontSize: 18,
+    lineHeight: 25,
+    color: C.ink,
+    letterSpacing: 0,
+  },
+  visualWrap: {
+    minHeight: 168,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    backgroundColor: C.surfaceLow,
     overflow: "hidden",
   },
   visualImage: {
     width: "100%",
-    minHeight: 160,
+    minHeight: 168,
   },
   visualSkeleton: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.65,
+    backgroundColor: C.surfaceLow,
+    opacity: 0.82,
   },
-  options: {
-    gap: 8,
-  },
-  option: {
+  showAnswerButton: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    gap: 6,
+    backgroundColor: C.primaryTint,
+    borderColor: C.primaryBorderTint,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
-  optionText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
+  showAnswerText: {
+    fontFamily: F.bodySemi,
+    fontSize: 13,
+    color: C.primary,
   },
-  answerBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  answerCard: {
+    backgroundColor: C.primaryTint,
+    borderColor: C.primaryBorderTint,
+    borderWidth: 1,
+    borderRadius: 12,
     padding: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
+    gap: 10,
+  },
+  answerLabel: {
+    fontFamily: F.bodyBold,
+    fontSize: 10,
+    color: C.inkMuted,
+    letterSpacing: 1.2,
   },
   answerText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-    flex: 1,
+    fontFamily: F.displaySemi,
+    fontSize: 16,
+    lineHeight: 22,
+    color: C.primaryDark,
   },
-  answerHint: {
-    padding: 10,
+  answerOptions: {
+    gap: 8,
+  },
+  answerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     borderRadius: 8,
-    gap: 2,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
-  answerHintLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
+  answerOptionCorrect: {
+    backgroundColor: C.card,
+    borderColor: C.primaryBorderTint,
   },
-  answerHintText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+  answerOptionDim: {
+    backgroundColor: "rgba(255,255,255,0.52)",
+    borderColor: "rgba(194,201,187,0.58)",
+  },
+  answerIconSlot: {
+    width: 18,
+    alignItems: "center",
+  },
+  answerOptionText: {
+    flex: 1,
+    fontFamily: F.bodySemi,
+    fontSize: 14,
+    color: C.primaryDark,
+  },
+  answerOptionTextDim: {
+    color: C.inkMuted,
+    fontFamily: F.bodyMedium,
+  },
+  gradeRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  gradeWrap: {
+    flex: 1,
+    minHeight: 56,
+    position: "relative",
+  },
+  gradeLedge: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
+  },
+  gradeFace: {
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 7,
+    paddingVertical: 14,
+  },
+  gradeText: {
+    fontFamily: F.displaySemi,
+    fontSize: 15,
+    letterSpacing: 0,
   },
 });

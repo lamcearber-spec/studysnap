@@ -55,6 +55,7 @@ function getCopy(language?: string) {
     return {
       title: "Wähle deinen StudySnap-Plan",
       subtitle: "Ein Scan pro Tag bleibt kostenlos. Bildreiche Übungen sind im Abo monatlich begrenzt.",
+      ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
       monthly: "Monatlich",
       annual: "Jährlich",
       recommended: "Empfohlen",
@@ -72,6 +73,7 @@ function getCopy(language?: string) {
   return {
     title: "Choose your StudySnap plan",
     subtitle: "One scan per day stays free. Image-rich practice is capped monthly by plan.",
+    ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
     monthly: "Monthly",
     annual: "Annual",
     recommended: "Recommended",
@@ -216,6 +218,7 @@ export default function PaywallScreen() {
           <Text style={styles.kicker}>STUDYSNAP PREMIUM</Text>
           <Text style={styles.title}>{copy.title}</Text>
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
+          <Text style={styles.ritual}>{copy.ritual}</Text>
         </View>
 
         <View style={styles.toggle}>
@@ -305,6 +308,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: C.inkBody,
+  },
+  ritual: {
+    fontFamily: F.bodySemi,
+    fontSize: 13,
+    lineHeight: 19,
+    color: C.primaryDark,
+    backgroundColor: C.primaryTint,
+    borderColor: C.primaryBorderTint,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 4,
   },
   toggle: {
     flexDirection: "row",
