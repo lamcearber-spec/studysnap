@@ -1,24 +1,24 @@
 {
   "expo": {
-    "name": "StudySnap",
-    "slug": "mobile",
+    "name": "BaraBara",
+    "slug": "barabara",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "icon": "./assets/mascot/icon.png",
+    "scheme": "barabara",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/mascot/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4F46E5"
+      "backgroundColor": "#FAF9F6"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {},
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/mascot/icon.png"
     },
     "plugins": [
       [
@@ -32,8 +32,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow StudySnap to access your photos to upload classwork pages.",
-          "cameraPermission": "Allow StudySnap to use the camera to photograph your classwork."
+          "photosPermission": "Allow BaraBara to access your photos to upload classwork pages.",
+          "cameraPermission": "Allow BaraBara to use the camera to photograph your classwork."
         }
       ]
     ],

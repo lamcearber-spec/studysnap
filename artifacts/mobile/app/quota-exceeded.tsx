@@ -43,7 +43,7 @@ export default function QuotaExceededScreen() {
       </View>
       <Text style={styles.title}>You've used all your images this month.</Text>
       <Text style={styles.body}>
-        Your quota resets on {resetLabel}. Until then, you can keep using StudySnap with text-only exercises,
+        Your quota resets on {resetLabel}. Until then, you can keep using BaraBara with text-only exercises,
         or upgrade to Premium for {premiumRemaining} more images right now.
       </Text>
 

@@ -10,8 +10,27 @@ export type GradeBand =
   | "upper_elementary" // Grade 5–6, ages 10–12
   | "lower_secondary"; // Grade 7–8, ages 12–14
 
+// French Éducation Nationale grade labels are non-numeric, so map them
+// explicitly to age-equivalent bands. Other countries' labels embed a
+// digit ("Grade 4", "Year 4", "Klasse 4") and can be band-mapped numerically.
+const FRENCH_GRADE_BAND: Record<string, GradeBand> = {
+  "CP": "lower_elementary",        // age 6-7  (~ Grade 1)
+  "CE1": "lower_elementary",       // age 7-8  (~ Grade 2)
+  "CE2": "mid_elementary",         // age 8-9  (~ Grade 3)
+  "CM1": "mid_elementary",         // age 9-10 (~ Grade 4)
+  "CM2": "upper_elementary",       // age 10-11 (~ Grade 5)
+  "6ème": "upper_elementary",      // age 11-12 (~ Grade 6, start of collège)
+  "6e": "upper_elementary",
+  "5ème": "lower_secondary",        // age 12-13 (~ Grade 7)
+  "5e": "lower_secondary",
+  "4ème": "lower_secondary",        // age 13-14 (~ Grade 8)
+  "4e": "lower_secondary",
+};
+
 export function getGradeBand(grade: string): GradeBand {
+  if (grade in FRENCH_GRADE_BAND) return FRENCH_GRADE_BAND[grade];
   const num = parseInt(grade.replace(/\D/g, ""), 10);
+  if (Number.isNaN(num)) return "upper_elementary"; // safe middle fallback
   if (num <= 2) return "lower_elementary";
   if (num <= 4) return "mid_elementary";
   if (num <= 6) return "upper_elementary";

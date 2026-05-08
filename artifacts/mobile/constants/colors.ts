@@ -1,81 +1,110 @@
-const colors = {
-  light: {
-    text: "#1A1A2E",
-    tint: "#4F46E5",
+// BaraBara take design tokens — exposed via the legacy useColors() hook so
+// every screen that consumes `colors.background`, `colors.primary` etc.
+// auto-adopts the new palette. Mirrors `app/_components/tokens.ts` (C).
+// Reference: radom-vault/projects/designproject/barabara-market-research.md
 
-    background: "#F7F8FC",
-    foreground: "#1A1A2E",
+const _colors = {
+  light: {
+    // Core
+    text: "#3A3A3A",             // Slate
+    tint: "#A76A4A",             // Capybara Brown
+
+    // Surfaces
+    background: "#FAF3E7",        // Cream — primary background
+    foreground: "#3A3A3A",        // Slate
 
     card: "#FFFFFF",
-    cardForeground: "#1A1A2E",
+    cardForeground: "#3A3A3A",
 
-    primary: "#4F46E5",
+    // Primary (Capybara Brown)
+    primary: "#A76A4A",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#EEF2FF",
-    secondaryForeground: "#4F46E5",
+    // Secondary surface (cream tonal step)
+    secondary: "#F4ECDB",
+    secondaryForeground: "#8A5538",
 
-    muted: "#F1F5F9",
-    mutedForeground: "#64748B",
+    // Muted
+    muted: "#F4ECDB",
+    mutedForeground: "#8A8378",
 
-    accent: "#F59E0B",
-    accentForeground: "#FFFFFF",
+    // Accent (Citrus — streak / gold)
+    accent: "#FFB627",
+    accentForeground: "#A66C00",
 
-    destructive: "#EF4444",
+    // Destructive (Cardinal — wrong / heart-loss)
+    destructive: "#E0533D",
     destructiveForeground: "#FFFFFF",
 
-    border: "#E2E8F0",
-    input: "#E2E8F0",
+    // Borders
+    border: "#E5DDC9",
+    input: "#E5DDC9",
 
-    success: "#10B981",
+    // Success (Sage)
+    success: "#7BB37A",
     successForeground: "#FFFFFF",
 
-    math: "#4F46E5",
-    science: "#10B981",
-    english: "#F59E0B",
-    history: "#EF4444",
-    art: "#8B5CF6",
-    other: "#6B7280",
+    // Subject colors — selected from the BaraBara 6-color palette so subject
+    // accents never escape the brand. Each subject gets one warm shade.
+    math: "#A76A4A",       // Capybara Brown
+    science: "#7BB37A",    // Sage
+    english: "#FFB627",    // Citrus
+    history: "#E0533D",    // Cardinal
+    art: "#8A5538",        // Capybara Dark
+    other: "#8A8378",      // Ink Muted
   },
+
   dark: {
-    text: "#F1F5F9",
-    tint: "#818CF8",
+    text: "#FAF3E7",
+    tint: "#D6A98C",
 
-    background: "#0F172A",
-    foreground: "#F1F5F9",
+    background: "#1F1812",         // warm near-black with brown undertone
+    foreground: "#FAF3E7",
 
-    card: "#1E293B",
-    cardForeground: "#F1F5F9",
+    card: "#2A211A",
+    cardForeground: "#FAF3E7",
 
-    primary: "#818CF8",
-    primaryForeground: "#0F172A",
+    primary: "#D6A98C",            // light Capybara for dark mode
+    primaryForeground: "#1F1812",
 
-    secondary: "#1E293B",
-    secondaryForeground: "#818CF8",
+    secondary: "#3A2E25",
+    secondaryForeground: "#D6A98C",
 
-    muted: "#1E293B",
-    mutedForeground: "#94A3B8",
+    muted: "#3A2E25",
+    mutedForeground: "#A89880",
 
-    accent: "#FBBF24",
-    accentForeground: "#0F172A",
+    accent: "#FFD075",
+    accentForeground: "#7A5200",
 
-    destructive: "#F87171",
-    destructiveForeground: "#0F172A",
+    destructive: "#E0533D",
+    destructiveForeground: "#FFFFFF",
 
-    border: "#334155",
-    input: "#334155",
+    border: "#4A3D30",
+    input: "#4A3D30",
 
-    success: "#34D399",
-    successForeground: "#0F172A",
+    success: "#7BB37A",
+    successForeground: "#FFFFFF",
 
-    math: "#818CF8",
-    science: "#34D399",
-    english: "#FBBF24",
-    history: "#F87171",
-    art: "#A78BFA",
-    other: "#94A3B8",
+    math: "#D6A98C",
+    science: "#7BB37A",
+    english: "#FFD075",
+    history: "#E0533D",
+    art: "#C49070",
+    other: "#A89880",
   },
-  radius: 14,
-};
+} as const;
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  full: 9999,
+} as const;
+
+const colors = { ..._colors, radius } as const;
+
+export type ColorScheme = keyof typeof _colors;
+export type Colors = typeof _colors.light;
 
 export default colors;

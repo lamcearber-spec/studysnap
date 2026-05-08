@@ -20,7 +20,11 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProfile } from "@/context/ProfileContext";
 import { type Session, useSession } from "@/context/SessionContext";
-import { getDifficultiesForLanguage, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { GraduationCap, Flame } from "phosphor-react-native";
+import { DifficultyIcon } from "@/components/DifficultyIcon";
+import { Mascot } from "@/components/Mascot";
+import { SubjectIcon } from "@/components/SubjectIcon";
+import { getDifficultiesForLanguage, getSubjectLabel } from "@/constants/data";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
 import { useGetUsage, type Quota } from "@workspace/api-client-react";
@@ -29,12 +33,12 @@ import { C, F } from "@/app/_components/tokens";
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const isWeb = Platform.OS === "web";
 
-function getGreeting(name?: string): { text: string; emoji: string } {
+function getGreeting(name?: string): { text: string } {
   const hour = new Date().getHours();
   const first = name?.split(" ")[0] ?? "friend";
-  if (hour < 12) return { text: `Good morning, ${first}`, emoji: "☀️" };
-  if (hour < 17) return { text: `Good afternoon, ${first}`, emoji: "👋" };
-  return { text: `Good evening, ${first}`, emoji: "🌙" };
+  if (hour < 12) return { text: `Good morning, ${first}` };
+  if (hour < 17) return { text: `Good afternoon, ${first}` };
+  return { text: `Good evening, ${first}` };
 }
 
 // Tactile primary CTA. The signature interaction:
@@ -104,7 +108,7 @@ function StreakCard({ streak, doneToday, totalToday }: {
       </View>
       <View style={styles.streakCard}>
         <View style={styles.streakFlame}>
-          <Text style={{ fontSize: 26 }}>🔥</Text>
+          <Flame size={26} color={C.yellowDeep} weight="duotone" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.streakNumber}>
@@ -136,7 +140,10 @@ function UsageChip({ quota, streak }: { quota: Quota; streak: number }) {
         <Text style={styles.kicker}>DAILY HABIT</Text>
       </View>
       <View style={styles.usageChip}>
-        <Text style={styles.usageHeadline}>🔥 {streak} days in a row</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Flame size={16} color={C.yellowDeep} weight="duotone" />
+          <Text style={styles.usageHeadline}>{streak} days in a row</Text>
+        </View>
         <Text style={styles.usageBlocks}>{usageBlocks}</Text>
         <Text style={styles.usageMeta}>
           {quota.used} / {quota.limit} images this month · resets {resetLabel}
@@ -204,9 +211,9 @@ function getReviewCounts(session: Session) {
 
 // Trophy row — tactile, three-tier (PERFECT / HIGH / REGULAR), pressable.
 function TrophyRow({
-  emoji, title, correct, answered, pending, total, dateLabel, onPress,
+  subjectId, title, correct, answered, pending, total, dateLabel, onPress,
 }: {
-  emoji: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
+  subjectId: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
   onPress: () => void;
 }) {
   const pct = answered === 0 ? 0 : Math.round((correct / answered) * 100);
@@ -251,7 +258,12 @@ function TrophyRow({
     >
       {isHigh && <View style={styles.trophyLeftRail} />}
       <View style={emojiWrapStyle}>
-        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+        <SubjectIcon
+          id={subjectId}
+          size={22}
+          color={isPerfect ? C.yellowDeep : isHigh ? C.primary : C.ink}
+          weight={isPerfect ? "duotone" : "regular"}
+        />
       </View>
       <View style={{ flex: 1 }}>
         <View style={styles.trophyTitleRow}>
@@ -306,26 +318,26 @@ function EmptyState() {
 function SubjectChip({ id, language }: { id: string; language?: string }) {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipEmoji}>{getSubjectEmoji(id)}</Text>
+      <SubjectIcon id={id} size={12} color={C.primaryDark} weight="regular" />
       <Text style={styles.chipLabel}>{getSubjectLabel(id, language)}</Text>
     </View>
   );
 }
 
 function ProfileStrip({
-  grade, difficultyLabel, difficultyEmoji, subjects, language,
+  grade, difficultyId, difficultyLabel, subjects, language,
 }: {
-  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[]; language?: string;
+  grade: string; difficultyId: string; difficultyLabel: string; subjects: string[]; language?: string;
 }) {
   return (
     <View style={styles.profileStrip}>
       <View style={styles.profileMetaItem}>
-        <Text style={styles.profileMetaEmoji}>🎒</Text>
+        <GraduationCap size={16} color={C.ink} weight="regular" />
         <Text style={styles.profileMetaText}>{grade}</Text>
       </View>
       <View style={styles.stripDivider} />
       <View style={styles.profileMetaItem}>
-        <Text style={styles.profileMetaEmoji}>{difficultyEmoji}</Text>
+        <DifficultyIcon id={difficultyId} size={16} color={C.ink} weight="regular" />
         <Text style={styles.profileMetaText}>{difficultyLabel}</Text>
       </View>
       <View style={styles.stripDivider} />
@@ -432,23 +444,36 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              {greeting.text} {greeting.emoji}
-            </Text>
-            <Text style={styles.brand}>StudySnap</Text>
+        {/* Top HUD strip — Duolingo pattern: streak | quota | settings.
+            Streak flame in Citrus, kept compact above the hero. */}
+        <View style={styles.hudStrip}>
+          <View style={styles.hudPill}>
+            <Flame size={18} color={C.yellow} weight="duotone" />
+            <Text style={styles.hudPillNumber}>{streak}</Text>
           </View>
+          <View style={{ flex: 1 }} />
           <SettingsButton />
+        </View>
+
+        {/* Hero — full-bleed cream block with Capybara mascot 3/4 view +
+            Duo-style headline + 3D fat rounded CTA in Capybara Brown.
+            Matches the App Store screenshot pattern of category winners. */}
+        <View style={styles.hero}>
+          <View style={styles.heroMascot}>
+            <Mascot variant="pose" size={120} />
+          </View>
+          <View style={styles.heroText}>
+            <Text style={styles.heroGreeting}>{greeting.text.toLowerCase()}</Text>
+            <Text style={styles.heroHeadline}>Snap. Practice.{"\n"}Master.</Text>
+          </View>
         </View>
 
         {/* Profile chip strip */}
         {profile && (
           <ProfileStrip
             grade={profile.grade ?? "Grade —"}
+            difficultyId={difficultyInfo?.id ?? "same"}
             difficultyLabel={difficultyInfo?.label ?? "Same level"}
-            difficultyEmoji={difficultyInfo?.emoji ?? "⚡"}
             subjects={profile.subjects ?? []}
             language={profile.language}
           />
@@ -488,7 +513,7 @@ export default function HomeScreen() {
                 return (
                   <TrophyRow
                     key={session.id}
-                    emoji={getSubjectEmoji(session.subject)}
+                    subjectId={session.subject}
                     title={session.topic || getSubjectLabel(session.subject, profile?.language)}
                     correct={counts.correct}
                     answered={counts.answered}
@@ -548,8 +573,71 @@ function relativeDate(d: Date): string {
 // === Styles ================================================================
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
-  scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 24 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 20 },
 
+  // ─── Top HUD strip — Duolingo-style streak + quota row ─────────────────
+  hudStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  hudPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: C.yellowTint,
+    borderWidth: 1,
+    borderColor: "rgba(166,108,0,0.18)",
+  },
+  hudPillNumber: {
+    fontFamily: F.display,
+    fontSize: 16,
+    color: C.yellowDeep,
+  },
+
+  // ─── Hero — full-bleed Capybara block ──────────────────────────────────
+  hero: {
+    backgroundColor: C.primary,
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    overflow: "hidden",
+  },
+  heroMascot: {
+    width: 124,
+    height: 124,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  heroText: {
+    flex: 1,
+  },
+  heroGreeting: {
+    fontFamily: F.bodyMedium,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.78)",
+    marginBottom: 4,
+    textTransform: "capitalize",
+  },
+  heroHeadline: {
+    fontFamily: F.display,
+    fontSize: 26,
+    color: "#FFFFFF",
+    lineHeight: 30,
+    letterSpacing: -0.6,
+  },
+
+  // Legacy header styles preserved (no longer rendered, but other components
+  // reference these tokens — leaving in place avoids cascading edits)
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -605,34 +693,35 @@ const styles = StyleSheet.create({
   chipLabel: { fontFamily: F.bodySemi, fontSize: 12, color: C.primaryDark, letterSpacing: 0.1 },
 
   // CTA — layered geometry: ledge (z=0) + face (z=1)
+  // Duolingo-style fat 3D button: thicker ledge, larger radius, larger title.
   ctaWrap: { position: "relative", overflow: "visible" },
   ctaLedge: {
     position: "absolute",
     left: 0, right: 0, bottom: 0,
     backgroundColor: C.primaryShadow,
-    borderRadius: 14,
-    height: 4,
+    borderRadius: 18,
+    height: 6,
     zIndex: 0,
     elevation: 0,
   },
   ctaFace: {
     flexDirection: "row", alignItems: "center", gap: 14,
     backgroundColor: C.primary,
-    borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 18,
-    marginBottom: 4,
+    borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 20,
+    marginBottom: 6,
     zIndex: 1,
   },
   ctaIconWrap: {
-    width: 52, height: 52, borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    width: 56, height: 56, borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.96)",
     alignItems: "center", justifyContent: "center",
   },
   ctaTitle: {
-    fontFamily: F.display, fontSize: 22, color: "#fff", letterSpacing: -0.4,
+    fontFamily: F.display, fontSize: 24, color: "#fff", letterSpacing: -0.5,
   },
   ctaSub: {
-    fontFamily: F.bodyMedium, fontSize: 14, color: "rgba(255,255,255,0.82)",
+    fontFamily: F.bodyMedium, fontSize: 14, color: "rgba(255,255,255,0.85)",
     marginTop: 2,
   },
 

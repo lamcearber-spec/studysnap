@@ -26,6 +26,7 @@ import { useProfile } from "@/context/ProfileContext";
 import { maybeRequestReview } from "@/hooks/useAppReview";
 import { useColors } from "@/hooks/useColors";
 import { getGradeGroupsForCountry, getSubjectsForLanguage } from "@/constants/data";
+import { SubjectIcon } from "@/components/SubjectIcon";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
 import type { GenerateExercisesResponse, QuotaExceededError } from "@workspace/api-client-react";
@@ -174,7 +175,7 @@ export default function ScanScreen() {
       return;
     }
     if (!appUserId) {
-      Alert.alert("Almost ready", "StudySnap is still preparing your account. Please try again in a moment.");
+      Alert.alert("Almost ready", "BaraBara is still preparing your account. Please try again in a moment.");
       return;
     }
     if (!imageUri) return;
@@ -378,7 +379,7 @@ export default function ScanScreen() {
                         Haptics.selectionAsync();
                       }}
                     >
-                      <Text style={styles.chipEmoji}>{s.emoji}</Text>
+                      <SubjectIcon id={s.id} size={16} color={selectedSubject === s.id ? "#fff" : colors.foreground} />
                       <Text style={[styles.chipText, { color: selectedSubject === s.id ? "#fff" : colors.foreground }]}>
                         {s.label}
                       </Text>

@@ -17,11 +17,14 @@ import {
   COUNTRIES,
   getDifficultiesForLanguage,
   getGradeGroupsForCountry,
+  getLanguageForCountry,
   getSubjectsForLanguage,
   type Difficulty,
 } from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
+import { DifficultyIcon } from "@/components/DifficultyIcon";
+import { SubjectIcon } from "@/components/SubjectIcon";
 
 const isWeb = Platform.OS === "web";
 
@@ -42,7 +45,11 @@ export default function UserSettingsScreen() {
   const [isDirty, setIsDirty] = useState(false);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === countryCode);
-  const selectedLanguage = selectedCountry?.language ?? profile?.language ?? "English";
+  // Practice language ALWAYS follows the selected country. Fall back to profile
+  // only when no country is selected yet, and to English only when neither is.
+  const selectedLanguage = selectedCountry
+    ? getLanguageForCountry(selectedCountry.code, "English")
+    : profile?.language ?? "English";
   const gradeGroups = getGradeGroupsForCountry(countryCode);
   const subjectsList = getSubjectsForLanguage(selectedLanguage);
   const difficulties = getDifficultiesForLanguage(selectedLanguage);
@@ -95,11 +102,16 @@ export default function UserSettingsScreen() {
       Alert.alert("No subjects", "Please select at least one subject.");
       return;
     }
+    // Derive language directly from country at save time. This guarantees the
+    // persisted profile.language matches the chosen country regardless of any
+    // intermediate UI state — fixes the "language reverts to English" bug
+    // where stale or undefined language fields could survive a country change.
+    const language = getLanguageForCountry(selectedCountry.code, "English");
     await updateProfile({
       name: name.trim(),
       countryCode,
       countryName: selectedCountry.name,
-      language: selectedCountry.language,
+      language,
       subjects,
       difficulty,
       grade,
@@ -211,6 +223,14 @@ export default function UserSettingsScreen() {
               );
             })}
           </View>
+          {selectedCountry && (
+            <View style={[styles.languagePill, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+              <Ionicons name="language-outline" size={14} color={colors.primary} />
+              <Text style={[styles.languagePillText, { color: colors.foreground }]}>
+                Practice language: <Text style={{ fontFamily: "Inter_700Bold" }}>{selectedLanguage}</Text>
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Grade */}
@@ -265,7 +285,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => selectDifficulty(d.id)}
                 >
-                  <Text style={styles.diffEmoji}>{d.emoji}</Text>
+                  <DifficultyIcon id={d.id} size={20} color={isSelected ? d.color : colors.mutedForeground} />
                   <View style={styles.diffText}>
                     <Text style={[styles.diffLabel, { color: isSelected ? d.color : colors.foreground }]}>
                       {d.label}
@@ -304,7 +324,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => toggleSubject(subject.id)}
                 >
-                  <Text style={styles.subjectEmoji}>{subject.emoji}</Text>
+                  <SubjectIcon id={subject.id} size={20} color={isSelected ? "#fff" : colors.foreground} />
                   <Text
                     style={[styles.subjectLabel, { color: isSelected ? "#fff" : colors.foreground }]}
                     numberOfLines={2}
@@ -375,6 +395,18 @@ const styles = StyleSheet.create({
   },
   countryFlag: { fontSize: 18 },
   countryChipName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  languagePill: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    gap: 6,
+  },
+  languagePillText: { fontSize: 13, fontFamily: "Inter_500Medium" },
   gradeGroup: { gap: 8 },
   groupLabel: {
     fontSize: 12,

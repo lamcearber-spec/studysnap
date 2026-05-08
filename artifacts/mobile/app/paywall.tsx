@@ -53,7 +53,7 @@ const PLANS: Plan[] = [
 function getCopy(language?: string) {
   if (language === "German") {
     return {
-      title: "Wähle deinen StudySnap-Plan",
+      title: "Wähle deinen BaraBara-Plan",
       subtitle: "Ein Scan pro Tag bleibt kostenlos. Bildreiche Übungen sind im Abo monatlich begrenzt.",
       ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
       monthly: "Monatlich",
@@ -71,7 +71,7 @@ function getCopy(language?: string) {
   }
 
   return {
-    title: "Choose your StudySnap plan",
+    title: "Choose your BaraBara plan",
     subtitle: "One scan per day stays free. Image-rich practice is capped monthly by plan.",
     ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
     monthly: "Monthly",
@@ -215,7 +215,7 @@ export default function PaywallScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.kicker}>STUDYSNAP PREMIUM</Text>
+          <Text style={styles.kicker}>BARABARA PREMIUM</Text>
           <Text style={styles.title}>{copy.title}</Text>
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
           <Text style={styles.ritual}>{copy.ritual}</Text>

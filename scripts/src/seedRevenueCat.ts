@@ -25,12 +25,12 @@ import {
   type CreateProductData,
 } from "@replit/revenuecat-sdk";
 
-const PROJECT_NAME = "StudySnap";
+const PROJECT_NAME = "BaraBara";
 
-const APP_STORE_APP_NAME = "StudySnap iOS";
-const APP_STORE_BUNDLE_ID = "com.studysnap.app";
-const PLAY_STORE_APP_NAME = "StudySnap Android";
-const PLAY_STORE_PACKAGE_NAME = "com.studysnap.app";
+const APP_STORE_APP_NAME = "BaraBara iOS";
+const APP_STORE_BUNDLE_ID = "com.barabara.app";
+const PLAY_STORE_APP_NAME = "BaraBara Android";
+const PLAY_STORE_PACKAGE_NAME = "com.barabara.app";
 
 const OFFERING_IDENTIFIER = "default";
 const OFFERING_DISPLAY_NAME = "Default Offering";
@@ -58,37 +58,37 @@ type PackageSeed = {
 
 const PRODUCT_SEEDS: ProductSeed[] = [
   {
-    identifier: "studysnap_starter_monthly",
-    playStoreIdentifier: "studysnap_starter_monthly:monthly",
-    displayName: "StudySnap Starter",
-    title: "StudySnap Starter Monthly",
+    identifier: "barabara_starter_monthly",
+    playStoreIdentifier: "barabara_starter_monthly:monthly",
+    displayName: "BaraBara Starter",
+    title: "BaraBara Starter Monthly",
     duration: "P1M",
     tier: "starter",
     prices: [{ amount_micros: 4_990_000, currency: "USD" }],
   },
   {
-    identifier: "studysnap_starter_annual",
-    playStoreIdentifier: "studysnap_starter_annual:annual",
-    displayName: "StudySnap Starter",
-    title: "StudySnap Starter Annual",
+    identifier: "barabara_starter_annual",
+    playStoreIdentifier: "barabara_starter_annual:annual",
+    displayName: "BaraBara Starter",
+    title: "BaraBara Starter Annual",
     duration: "P1Y",
     tier: "starter",
     prices: [{ amount_micros: 49_900_000, currency: "USD" }],
   },
   {
-    identifier: "studysnap_premium_monthly",
-    playStoreIdentifier: "studysnap_premium_monthly:monthly",
-    displayName: "StudySnap Premium",
-    title: "StudySnap Premium Monthly",
+    identifier: "barabara_premium_monthly",
+    playStoreIdentifier: "barabara_premium_monthly:monthly",
+    displayName: "BaraBara Premium",
+    title: "BaraBara Premium Monthly",
     duration: "P1M",
     tier: "premium",
     prices: [{ amount_micros: 9_990_000, currency: "USD" }],
   },
   {
-    identifier: "studysnap_premium_annual",
-    playStoreIdentifier: "studysnap_premium_annual:annual",
-    displayName: "StudySnap Premium",
-    title: "StudySnap Premium Annual",
+    identifier: "barabara_premium_annual",
+    playStoreIdentifier: "barabara_premium_annual:annual",
+    displayName: "BaraBara Premium",
+    title: "BaraBara Premium Annual",
     duration: "P1Y",
     tier: "premium",
     prices: [{ amount_micros: 99_900_000, currency: "USD" }],
@@ -96,10 +96,10 @@ const PRODUCT_SEEDS: ProductSeed[] = [
 ];
 
 const PACKAGE_SEEDS: PackageSeed[] = [
-  { identifier: "$rc_monthly", displayName: "Starter Monthly", productIdentifier: "studysnap_starter_monthly" },
-  { identifier: "$rc_annual", displayName: "Starter Annual", productIdentifier: "studysnap_starter_annual" },
-  { identifier: "premium_monthly", displayName: "Premium Monthly", productIdentifier: "studysnap_premium_monthly" },
-  { identifier: "premium_annual", displayName: "Premium Annual", productIdentifier: "studysnap_premium_annual" },
+  { identifier: "$rc_monthly", displayName: "Starter Monthly", productIdentifier: "barabara_starter_monthly" },
+  { identifier: "$rc_annual", displayName: "Starter Annual", productIdentifier: "barabara_starter_annual" },
+  { identifier: "premium_monthly", displayName: "Premium Monthly", productIdentifier: "barabara_premium_monthly" },
+  { identifier: "premium_annual", displayName: "Premium Annual", productIdentifier: "barabara_premium_annual" },
 ];
 
 type TestStorePricesResponse = {
