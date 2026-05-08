@@ -1,22 +1,22 @@
 export const C = {
-  surface: "#FAF9F6",
-  surfaceLow: "#F4F1ED",
-  surfaceHigh: "#EAE6E0",
+  surface: "#F4F1E8",
+  surfaceLow: "#FAF7EE",
+  surfaceHigh: "#E5E2DA",
   card: "#FFFFFF",
-  ink: "#1B1C1C",
-  inkBody: "#42493E",
-  inkMuted: "#72796E",
-  hairline: "#C2C9BB",
-  primary: "#2D5A27",
-  primaryDark: "#154212",
-  primaryShadow: "#0F2F0C",
-  primaryFixedDim: "#A1D494",
-  primaryTint: "rgba(45,90,39,0.10)",
-  primaryBorderTint: "rgba(45,90,39,0.30)",
-  yellow: "#F7D060",
-  yellowDeep: "#745B00",
-  yellowSoft: "#FCE393",
-  yellowTint: "rgba(247,208,96,0.16)",
+  ink: "#1C1C17",
+  inkBody: "#42474D",
+  inkMuted: "#72777E",
+  hairline: "#C2C7CE",
+  primary: "#B8DCFF",
+  primaryDark: "#3E6280",
+  primaryShadow: "rgba(62,98,128,0.12)",
+  primaryFixedDim: "#A7CAED",
+  primaryTint: "rgba(184,220,255,0.30)",
+  primaryBorderTint: "rgba(62,98,128,0.30)",
+  yellow: "#FFE8A8",
+  yellowDeep: "#5C4300",
+  yellowSoft: "#FFC9D6",
+  yellowTint: "rgba(255,232,168,0.40)",
   error: "#BA1A1A",
 };
 
@@ -30,4 +30,3 @@ export const F = {
 };
 
 export default {};
-
