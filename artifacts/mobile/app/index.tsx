@@ -444,16 +444,28 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-            <Mascot variant="icon" size={40} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>{greeting.text}</Text>
-              <Text style={styles.brand}>BaraBara</Text>
-            </View>
+        {/* Top HUD strip — Duolingo pattern: streak | quota | settings.
+            Streak flame in Citrus, kept compact above the hero. */}
+        <View style={styles.hudStrip}>
+          <View style={styles.hudPill}>
+            <Flame size={18} color={C.yellow} weight="duotone" />
+            <Text style={styles.hudPillNumber}>{streak}</Text>
           </View>
+          <View style={{ flex: 1 }} />
           <SettingsButton />
+        </View>
+
+        {/* Hero — full-bleed cream block with Capybara mascot 3/4 view +
+            Duo-style headline + 3D fat rounded CTA in Capybara Brown.
+            Matches the App Store screenshot pattern of category winners. */}
+        <View style={styles.hero}>
+          <View style={styles.heroMascot}>
+            <Mascot variant="pose" size={120} />
+          </View>
+          <View style={styles.heroText}>
+            <Text style={styles.heroGreeting}>{greeting.text.toLowerCase()}</Text>
+            <Text style={styles.heroHeadline}>Snap. Practice.{"\n"}Master.</Text>
+          </View>
         </View>
 
         {/* Profile chip strip */}
@@ -561,8 +573,71 @@ function relativeDate(d: Date): string {
 // === Styles ================================================================
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.surface },
-  scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 24 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16, gap: 20 },
 
+  // ─── Top HUD strip — Duolingo-style streak + quota row ─────────────────
+  hudStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  hudPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: C.yellowTint,
+    borderWidth: 1,
+    borderColor: "rgba(166,108,0,0.18)",
+  },
+  hudPillNumber: {
+    fontFamily: F.display,
+    fontSize: 16,
+    color: C.yellowDeep,
+  },
+
+  // ─── Hero — full-bleed Capybara block ──────────────────────────────────
+  hero: {
+    backgroundColor: C.primary,
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    overflow: "hidden",
+  },
+  heroMascot: {
+    width: 124,
+    height: 124,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  heroText: {
+    flex: 1,
+  },
+  heroGreeting: {
+    fontFamily: F.bodyMedium,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.78)",
+    marginBottom: 4,
+    textTransform: "capitalize",
+  },
+  heroHeadline: {
+    fontFamily: F.display,
+    fontSize: 26,
+    color: "#FFFFFF",
+    lineHeight: 30,
+    letterSpacing: -0.6,
+  },
+
+  // Legacy header styles preserved (no longer rendered, but other components
+  // reference these tokens — leaving in place avoids cascading edits)
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -618,34 +693,35 @@ const styles = StyleSheet.create({
   chipLabel: { fontFamily: F.bodySemi, fontSize: 12, color: C.primaryDark, letterSpacing: 0.1 },
 
   // CTA — layered geometry: ledge (z=0) + face (z=1)
+  // Duolingo-style fat 3D button: thicker ledge, larger radius, larger title.
   ctaWrap: { position: "relative", overflow: "visible" },
   ctaLedge: {
     position: "absolute",
     left: 0, right: 0, bottom: 0,
     backgroundColor: C.primaryShadow,
-    borderRadius: 14,
-    height: 4,
+    borderRadius: 18,
+    height: 6,
     zIndex: 0,
     elevation: 0,
   },
   ctaFace: {
     flexDirection: "row", alignItems: "center", gap: 14,
     backgroundColor: C.primary,
-    borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 18,
-    marginBottom: 4,
+    borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 20,
+    marginBottom: 6,
     zIndex: 1,
   },
   ctaIconWrap: {
-    width: 52, height: 52, borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    width: 56, height: 56, borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.96)",
     alignItems: "center", justifyContent: "center",
   },
   ctaTitle: {
-    fontFamily: F.display, fontSize: 22, color: "#fff", letterSpacing: -0.4,
+    fontFamily: F.display, fontSize: 24, color: "#fff", letterSpacing: -0.5,
   },
   ctaSub: {
-    fontFamily: F.bodyMedium, fontSize: 14, color: "rgba(255,255,255,0.82)",
+    fontFamily: F.bodyMedium, fontSize: 14, color: "rgba(255,255,255,0.85)",
     marginTop: 2,
   },
 

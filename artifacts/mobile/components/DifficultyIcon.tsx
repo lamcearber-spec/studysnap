@@ -9,11 +9,12 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: stri
   Tree,
 };
 
+// BaraBara default — duotone weight matches the SubjectIcon family.
 export function DifficultyIcon({
   id,
   size = 18,
-  color = "#1B1C1C",
-  weight = "regular",
+  color = "#3A3A3A",
+  weight = "duotone",
 }: {
   id: string;
   size?: number;

@@ -1,92 +1,99 @@
-// BaraBara design tokens — exposed via the legacy useColors() hook so every
-// screen that still consumes `colors.background`, `colors.primary` etc.
-// automatically picks up the Modern Schoolyard aesthetic without per-screen
-// rewrites. Field names are kept identical to the original scaffold so no
-// call-sites need updating. The canonical token source remains
-// `app/_components/tokens.ts` (C + F) for screens that opt in to the strict
-// Modern Schoolyard component vocabulary.
+// BaraBara take design tokens — exposed via the legacy useColors() hook so
+// every screen that consumes `colors.background`, `colors.primary` etc.
+// auto-adopts the new palette. Mirrors `app/_components/tokens.ts` (C).
+// Reference: radom-vault/projects/designproject/barabara-market-research.md
 
 const colors = {
   light: {
-    text: "#1B1C1C",
-    tint: "#2D5A27",
+    // Core
+    text: "#3A3A3A",             // Slate
+    tint: "#A76A4A",             // Capybara Brown
 
-    background: "#FAF9F6",
-    foreground: "#1B1C1C",
+    // Surfaces
+    background: "#FAF3E7",        // Cream — primary background
+    foreground: "#3A3A3A",        // Slate
 
     card: "#FFFFFF",
-    cardForeground: "#1B1C1C",
+    cardForeground: "#3A3A3A",
 
-    primary: "#2D5A27",
+    // Primary (Capybara Brown)
+    primary: "#A76A4A",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#F4F1ED",
-    secondaryForeground: "#154212",
+    // Secondary surface (cream tonal step)
+    secondary: "#F4ECDB",
+    secondaryForeground: "#8A5538",
 
-    muted: "#F4F1ED",
-    mutedForeground: "#72796E",
+    // Muted
+    muted: "#F4ECDB",
+    mutedForeground: "#8A8378",
 
-    accent: "#F7D060",
-    accentForeground: "#745B00",
+    // Accent (Citrus — streak / gold)
+    accent: "#FFB627",
+    accentForeground: "#A66C00",
 
-    destructive: "#BA1A1A",
+    // Destructive (Cardinal — wrong / heart-loss)
+    destructive: "#E0533D",
     destructiveForeground: "#FFFFFF",
 
-    border: "#C2C9BB",
-    input: "#C2C9BB",
+    // Borders
+    border: "#E5DDC9",
+    input: "#E5DDC9",
 
-    success: "#2D5A27",
+    // Success (Sage)
+    success: "#7BB37A",
     successForeground: "#FFFFFF",
 
-    // Subject colors — warm earthen palette aligned with the brand.
-    math: "#2D5A27",
-    science: "#1F6E7A",
-    english: "#745B00",
-    history: "#8B1A1A",
-    art: "#7B1F2A",
-    other: "#72796E",
+    // Subject colors — selected from the BaraBara 6-color palette so subject
+    // accents never escape the brand. Each subject gets one warm shade.
+    math: "#A76A4A",       // Capybara Brown
+    science: "#7BB37A",    // Sage
+    english: "#FFB627",    // Citrus
+    history: "#E0533D",    // Cardinal
+    art: "#8A5538",        // Capybara Dark
+    other: "#8A8378",      // Ink Muted
   },
 
   dark: {
-    text: "#E8E4D9",
-    tint: "#A1D494",
+    text: "#FAF3E7",
+    tint: "#D6A98C",
 
-    background: "#16130C",
-    foreground: "#E8E4D9",
+    background: "#1F1812",         // warm near-black with brown undertone
+    foreground: "#FAF3E7",
 
-    card: "#221E18",
-    cardForeground: "#E8E4D9",
+    card: "#2A211A",
+    cardForeground: "#FAF3E7",
 
-    primary: "#A1D494",
-    primaryForeground: "#16130C",
+    primary: "#D6A98C",            // light Capybara for dark mode
+    primaryForeground: "#1F1812",
 
-    secondary: "#2A2620",
-    secondaryForeground: "#A1D494",
+    secondary: "#3A2E25",
+    secondaryForeground: "#D6A98C",
 
-    muted: "#2A2620",
-    mutedForeground: "#9A938A",
+    muted: "#3A2E25",
+    mutedForeground: "#B5A893",
 
-    accent: "#F7D060",
-    accentForeground: "#16130C",
+    accent: "#FFB627",
+    accentForeground: "#1F1812",
 
     destructive: "#FFB4AB",
-    destructiveForeground: "#16130C",
+    destructiveForeground: "#1F1812",
 
-    border: "#3D362F",
-    input: "#3D362F",
+    border: "#4D3F33",
+    input: "#4D3F33",
 
-    success: "#A1D494",
-    successForeground: "#16130C",
+    success: "#A4D4A2",
+    successForeground: "#1F1812",
 
-    math: "#A1D494",
-    science: "#8BD2DF",
-    english: "#F5BE44",
-    history: "#FFB3AC",
-    art: "#FFB3AC",
-    other: "#9A938A",
+    math: "#D6A98C",
+    science: "#A4D4A2",
+    english: "#FFB627",
+    history: "#FFB4AB",
+    art: "#D6A98C",
+    other: "#B5A893",
   },
 
-  radius: 12,
+  radius: 14, // Duolingo-leaning rounded radius
 };
 
 export default colors;
