@@ -1,28 +1,28 @@
 export const C = {
-  surface: "#FAF9F6",
-  surfaceLow: "#F4F1ED",
-  surfaceHigh: "#EAE6E0",
-  card: "#FFFFFF",
-  ink: "#1B1C1C",
-  inkBody: "#42493E",
-  inkMuted: "#72796E",
-  hairline: "#C2C9BB",
-  primary: "#2D5A27",
-  primaryDark: "#154212",
-  primaryShadow: "#0F2F0C",
-  primaryFixedDim: "#A1D494",
-  primaryTint: "rgba(45,90,39,0.10)",
-  primaryBorderTint: "rgba(45,90,39,0.30)",
-  yellow: "#F7D060",
-  yellowDeep: "#745B00",
-  yellowSoft: "#FCE393",
-  yellowTint: "rgba(247,208,96,0.16)",
+  surface: "#F8F1E4",
+  surfaceLow: "#F2EAD6",
+  surfaceHigh: "#ECE2C8",
+  card: "#FBF7EE",
+  ink: "#1A1A1A",
+  inkBody: "#3A3A3A",
+  inkMuted: "#666666",
+  hairline: "#1A1A1A",
+  primary: "#8B1A1A",
+  primaryDark: "#690008",
+  primaryShadow: "#410003",
+  primaryFixedDim: "#FFB3AC",
+  primaryTint: "rgba(139,26,26,0.08)",
+  primaryBorderTint: "rgba(139,26,26,0.30)",
+  yellow: "#A87C2E",
+  yellowDeep: "#5C4300",
+  yellowSoft: "#E8D8B0",
+  yellowTint: "rgba(168,124,46,0.14)",
   error: "#BA1A1A",
 };
 
 export const F = {
-  display: "Epilogue_700Bold",
-  displaySemi: "Epilogue_600SemiBold",
+  display: "Newsreader_700Bold",
+  displaySemi: "Newsreader_600SemiBold",
   body: "Inter_400Regular",
   bodyMedium: "Inter_500Medium",
   bodySemi: "Inter_600SemiBold",
@@ -30,4 +30,3 @@ export const F = {
 };
 
 export default {};
-
