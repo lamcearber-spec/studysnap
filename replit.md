@@ -1,6 +1,6 @@
-# StudySnap
+# BaraBara
 
-An iPad/iOS app for elementary and middle school kids to photograph completed classwork and get AI-generated practice exercises to prepare for exams. Monetized with two RevenueCat tiers: Starter ($4.99/mo or $49.90/yr, 40 image-edited exercises per billing month) and Premium ($9.99/mo or $99.90/yr, 100 image-edited exercises per billing month).
+An iPad/iOS app for elementary and middle school kids to photograph completed classwork and get AI-generated practice exercises to prepare for exams. Mascot: a calm, clever capybara. Brand voice: chill, encouraging, premium. Monetized with two RevenueCat tiers: Starter ($4.99/mo or $49.90/yr, 40 image-edited exercises per billing month) and Premium ($9.99/mo or $99.90/yr, 100 image-edited exercises per billing month).
 
 ## Run & Operate
 
@@ -78,6 +78,6 @@ An iPad/iOS app for elementary and middle school kids to photograph completed cl
 
 - RevenueCat entitlement identifiers: `starter`, `premium`
 - RevenueCat project ID: stored in `REVENUECAT_PROJECT_ID` env var
-- App Store Connect IAP product IDs: `studysnap_starter_monthly`, `studysnap_starter_annual`, `studysnap_premium_monthly`, `studysnap_premium_annual`
+- App Store Connect IAP product IDs: `barabara_starter_monthly`, `barabara_starter_annual`, `barabara_premium_monthly`, `barabara_premium_annual`
 - Apple Small Business Program (15% vs 30%) - enroll before launch: https://developer.apple.com/app-store/small-business-program/enroll/
 - Sync RevenueCat -> App Store Connect via Replit Publishing pane after TestFlight publish

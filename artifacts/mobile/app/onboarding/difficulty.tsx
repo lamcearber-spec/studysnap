@@ -20,6 +20,7 @@ import {
 } from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
+import { DifficultyIcon } from "@/components/DifficultyIcon";
 
 export default function OnboardingDifficulty() {
   const colors = useColors();
@@ -117,7 +118,12 @@ export default function OnboardingDifficulty() {
               }}
             >
               <View style={[styles.diffEmojiBg, { backgroundColor: d.color + "20" }]}>
-                <Text style={styles.diffEmoji}>{d.emoji}</Text>
+                <DifficultyIcon
+                  id={d.id}
+                  size={26}
+                  color={d.color}
+                  weight={isSelected ? "fill" : "regular"}
+                />
               </View>
               <View style={styles.diffText}>
                 <Text style={[styles.diffLabel, { color: isSelected ? d.color : colors.foreground }]}>

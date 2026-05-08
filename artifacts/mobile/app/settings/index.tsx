@@ -92,7 +92,7 @@ export default function SettingsHubScreen() {
         </View>
 
         <Text style={[styles.version, { color: colors.mutedForeground }]}>
-          StudySnap · Version 1.0
+          BaraBara · Version 1.0
         </Text>
       </ScrollView>
     </View>

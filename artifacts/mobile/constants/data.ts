@@ -1,3 +1,9 @@
+// Country flags are intentionally retained — they are nationally-recognizable
+// glyphs, not generic decorative emojis. Subject + difficulty emojis have been
+// replaced with Phosphor icon name references; render via SubjectIcon / DifficultyIcon
+// components. Greeting time-of-day glyphs and the streak flame are dropped from
+// data and handled in-component (drop the emoji entirely or use a Phosphor flame).
+
 export const COUNTRIES = [
   { code: "GB", name: "United Kingdom", flag: "🇬🇧", language: "English" },
   { code: "US", name: "United States", flag: "🇺🇸", language: "English" },
@@ -60,19 +66,20 @@ export function getGradeGroupsForCountry(countryCode?: string): readonly GradeGr
 
 export const ALL_GRADES = GRADE_GROUPS.flatMap((g) => g.grades);
 
+// Phosphor icon name strings — resolved at render time by SubjectIcon
 export const SUBJECTS = [
-  { id: "math", label: "Math", emoji: "📐" },
-  { id: "reading", label: "Reading & Writing", emoji: "📖" },
-  { id: "science", label: "Science", emoji: "🔬" },
-  { id: "history", label: "History", emoji: "🏛️" },
-  { id: "geography", label: "Geography", emoji: "🌍" },
-  { id: "art", label: "Art", emoji: "🎨" },
-  { id: "music", label: "Music", emoji: "🎵" },
-  { id: "computing", label: "Computing", emoji: "💻" },
-  { id: "pe", label: "Physical Ed.", emoji: "⚽" },
-  { id: "social", label: "Social Studies", emoji: "👥" },
-  { id: "biology", label: "Biology", emoji: "🌿" },
-  { id: "chemistry", label: "Chemistry", emoji: "⚗️" },
+  { id: "math", label: "Math", icon: "MathOperations" },
+  { id: "reading", label: "Reading & Writing", icon: "BookOpen" },
+  { id: "science", label: "Science", icon: "Flask" },
+  { id: "history", label: "History", icon: "Bank" },
+  { id: "geography", label: "Geography", icon: "Globe" },
+  { id: "art", label: "Art", icon: "Palette" },
+  { id: "music", label: "Music", icon: "MusicNote" },
+  { id: "computing", label: "Computing", icon: "Code" },
+  { id: "pe", label: "Physical Ed.", icon: "SoccerBall" },
+  { id: "social", label: "Social Studies", icon: "UsersThree" },
+  { id: "biology", label: "Biology", icon: "Plant" },
+  { id: "chemistry", label: "Chemistry", icon: "TestTube" },
 ] as const;
 
 export type SubjectId = (typeof SUBJECTS)[number]["id"];
@@ -105,21 +112,21 @@ export const DIFFICULTIES = [
     id: "easier" as const,
     label: "Easier",
     desc: "More hints, simpler questions",
-    emoji: "😊",
+    icon: "Seedling", // Phosphor — small growing thing
     color: "#22C55E",
   },
   {
     id: "same" as const,
     label: "Same Level",
     desc: "Similar to your classwork",
-    emoji: "⚡",
+    icon: "Plant", // mid-growth
     color: "#F59E0B",
   },
   {
     id: "harder" as const,
     label: "More Challenging",
     desc: "Push beyond your classwork",
-    emoji: "🔥",
+    icon: "Tree", // full grown
     color: "#EF4444",
   },
 ] as const;
@@ -153,6 +160,17 @@ export function getSubjectLabel(id: string, language?: string): string {
   return getSubjectsForLanguage(language).find((s) => s.id === id)?.label ?? id;
 }
 
-export function getSubjectEmoji(id: string): string {
-  return SUBJECTS.find((s) => s.id === id)?.emoji ?? "📚";
+export function getSubjectIconName(id: string): string {
+  return SUBJECTS.find((s) => s.id === id)?.icon ?? "BookOpen";
+}
+
+// Backward-compat shim during the transition. Returns empty string so any
+// remaining callers render nothing instead of an emoji. Remove after the
+// rebrand sweep is fully merged.
+export function getSubjectEmoji(_id: string): string {
+  return "";
+}
+
+export function getDifficultyIconName(id: string): string {
+  return DIFFICULTIES.find((d) => d.id === id)?.icon ?? "Plant";
 }

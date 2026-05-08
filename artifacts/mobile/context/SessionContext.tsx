@@ -46,6 +46,8 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
+// Legacy AsyncStorage key — preserved across the StudySnap → BaraBara rebrand
+// so existing users' on-device session history survives the migration.
 const STORAGE_KEY = "@studysnap_sessions";
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {

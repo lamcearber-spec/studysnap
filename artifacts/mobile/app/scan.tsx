@@ -174,7 +174,7 @@ export default function ScanScreen() {
       return;
     }
     if (!appUserId) {
-      Alert.alert("Almost ready", "StudySnap is still preparing your account. Please try again in a moment.");
+      Alert.alert("Almost ready", "BaraBara is still preparing your account. Please try again in a moment.");
       return;
     }
     if (!imageUri) return;

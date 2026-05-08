@@ -17,6 +17,7 @@ import {
   shouldUseGermanContent,
 } from "@/constants/data";
 import { useColors } from "@/hooks/useColors";
+import { SubjectIcon } from "@/components/SubjectIcon";
 
 export default function OnboardingSubjects() {
   const colors = useColors();
@@ -110,7 +111,13 @@ export default function OnboardingSubjects() {
                 ]}
                 onPress={() => toggle(subject.id)}
               >
-                <Text style={styles.subjectEmoji}>{subject.emoji}</Text>
+                <SubjectIcon
+                  id={subject.id}
+                  size={28}
+                  color={isSelected ? "#fff" : colors.foreground}
+                  weight={isSelected ? "fill" : "regular"}
+                />
+                <View style={{ height: 6 }} />
                 <Text
                   style={[
                     styles.subjectLabel,

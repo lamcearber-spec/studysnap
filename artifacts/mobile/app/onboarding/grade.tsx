@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GraduationCap } from "phosphor-react-native";
 import { getGradeGroupsForCountry } from "@/constants/data";
 import { useColors } from "@/hooks/useColors";
 
@@ -64,7 +65,9 @@ export default function OnboardingGrade() {
         style={[styles.header, { paddingTop: top + 20 }]}
       >
         <Text style={styles.stepLabel}>{copy.step}</Text>
-        <Text style={styles.headerEmoji}>🎒</Text>
+        <View style={{ alignItems: "center", marginBottom: 4 }}>
+          <GraduationCap size={48} color="#FFFFFF" weight="duotone" />
+        </View>
         <Text style={styles.headerTitle}>{copy.title}</Text>
         <Text style={styles.headerSub}>{copy.subtitle}</Text>
         <View style={styles.dotsRow}>

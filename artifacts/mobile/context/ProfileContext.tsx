@@ -21,6 +21,8 @@ interface ProfileContextType {
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
+// Legacy AsyncStorage key — preserved across the StudySnap → BaraBara rebrand
+// so existing users' on-device profile survives the migration.
 const STORAGE_KEY = "@studysnap_profile";
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {

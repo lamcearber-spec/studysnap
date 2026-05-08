@@ -20,7 +20,11 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useProfile } from "@/context/ProfileContext";
 import { type Session, useSession } from "@/context/SessionContext";
-import { getDifficultiesForLanguage, getSubjectEmoji, getSubjectLabel } from "@/constants/data";
+import { GraduationCap, Flame } from "phosphor-react-native";
+import { DifficultyIcon } from "@/components/DifficultyIcon";
+import { Mascot } from "@/components/Mascot";
+import { SubjectIcon } from "@/components/SubjectIcon";
+import { getDifficultiesForLanguage, getSubjectLabel } from "@/constants/data";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
 import { useGetUsage, type Quota } from "@workspace/api-client-react";
@@ -29,12 +33,12 @@ import { C, F } from "@/app/_components/tokens";
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const isWeb = Platform.OS === "web";
 
-function getGreeting(name?: string): { text: string; emoji: string } {
+function getGreeting(name?: string): { text: string } {
   const hour = new Date().getHours();
   const first = name?.split(" ")[0] ?? "friend";
-  if (hour < 12) return { text: `Good morning, ${first}`, emoji: "☀️" };
-  if (hour < 17) return { text: `Good afternoon, ${first}`, emoji: "👋" };
-  return { text: `Good evening, ${first}`, emoji: "🌙" };
+  if (hour < 12) return { text: `Good morning, ${first}` };
+  if (hour < 17) return { text: `Good afternoon, ${first}` };
+  return { text: `Good evening, ${first}` };
 }
 
 // Tactile primary CTA. The signature interaction:
@@ -104,7 +108,7 @@ function StreakCard({ streak, doneToday, totalToday }: {
       </View>
       <View style={styles.streakCard}>
         <View style={styles.streakFlame}>
-          <Text style={{ fontSize: 26 }}>🔥</Text>
+          <Flame size={26} color={C.yellowDeep} weight="duotone" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.streakNumber}>
@@ -136,7 +140,10 @@ function UsageChip({ quota, streak }: { quota: Quota; streak: number }) {
         <Text style={styles.kicker}>DAILY HABIT</Text>
       </View>
       <View style={styles.usageChip}>
-        <Text style={styles.usageHeadline}>🔥 {streak} days in a row</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Flame size={16} color={C.yellowDeep} weight="duotone" />
+          <Text style={styles.usageHeadline}>{streak} days in a row</Text>
+        </View>
         <Text style={styles.usageBlocks}>{usageBlocks}</Text>
         <Text style={styles.usageMeta}>
           {quota.used} / {quota.limit} images this month · resets {resetLabel}
@@ -204,9 +211,9 @@ function getReviewCounts(session: Session) {
 
 // Trophy row — tactile, three-tier (PERFECT / HIGH / REGULAR), pressable.
 function TrophyRow({
-  emoji, title, correct, answered, pending, total, dateLabel, onPress,
+  subjectId, title, correct, answered, pending, total, dateLabel, onPress,
 }: {
-  emoji: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
+  subjectId: string; title: string; correct: number; answered: number; pending: number; total: number; dateLabel: string;
   onPress: () => void;
 }) {
   const pct = answered === 0 ? 0 : Math.round((correct / answered) * 100);
@@ -251,7 +258,12 @@ function TrophyRow({
     >
       {isHigh && <View style={styles.trophyLeftRail} />}
       <View style={emojiWrapStyle}>
-        <Text style={{ fontSize: 24 }}>{emoji}</Text>
+        <SubjectIcon
+          id={subjectId}
+          size={22}
+          color={isPerfect ? C.yellowDeep : isHigh ? C.primary : C.ink}
+          weight={isPerfect ? "duotone" : "regular"}
+        />
       </View>
       <View style={{ flex: 1 }}>
         <View style={styles.trophyTitleRow}>
@@ -306,26 +318,26 @@ function EmptyState() {
 function SubjectChip({ id, language }: { id: string; language?: string }) {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipEmoji}>{getSubjectEmoji(id)}</Text>
+      <SubjectIcon id={id} size={12} color={C.primaryDark} weight="regular" />
       <Text style={styles.chipLabel}>{getSubjectLabel(id, language)}</Text>
     </View>
   );
 }
 
 function ProfileStrip({
-  grade, difficultyLabel, difficultyEmoji, subjects, language,
+  grade, difficultyId, difficultyLabel, subjects, language,
 }: {
-  grade: string; difficultyLabel: string; difficultyEmoji: string; subjects: string[]; language?: string;
+  grade: string; difficultyId: string; difficultyLabel: string; subjects: string[]; language?: string;
 }) {
   return (
     <View style={styles.profileStrip}>
       <View style={styles.profileMetaItem}>
-        <Text style={styles.profileMetaEmoji}>🎒</Text>
+        <GraduationCap size={16} color={C.ink} weight="regular" />
         <Text style={styles.profileMetaText}>{grade}</Text>
       </View>
       <View style={styles.stripDivider} />
       <View style={styles.profileMetaItem}>
-        <Text style={styles.profileMetaEmoji}>{difficultyEmoji}</Text>
+        <DifficultyIcon id={difficultyId} size={16} color={C.ink} weight="regular" />
         <Text style={styles.profileMetaText}>{difficultyLabel}</Text>
       </View>
       <View style={styles.stripDivider} />
@@ -434,11 +446,12 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              {greeting.text} {greeting.emoji}
-            </Text>
-            <Text style={styles.brand}>StudySnap</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+            <Mascot variant="icon" size={40} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>{greeting.text}</Text>
+              <Text style={styles.brand}>BaraBara</Text>
+            </View>
           </View>
           <SettingsButton />
         </View>
@@ -447,8 +460,8 @@ export default function HomeScreen() {
         {profile && (
           <ProfileStrip
             grade={profile.grade ?? "Grade —"}
+            difficultyId={difficultyInfo?.id ?? "same"}
             difficultyLabel={difficultyInfo?.label ?? "Same level"}
-            difficultyEmoji={difficultyInfo?.emoji ?? "⚡"}
             subjects={profile.subjects ?? []}
             language={profile.language}
           />
@@ -488,7 +501,7 @@ export default function HomeScreen() {
                 return (
                   <TrophyRow
                     key={session.id}
-                    emoji={getSubjectEmoji(session.subject)}
+                    subjectId={session.subject}
                     title={session.topic || getSubjectLabel(session.subject, profile?.language)}
                     correct={counts.correct}
                     answered={counts.answered}
