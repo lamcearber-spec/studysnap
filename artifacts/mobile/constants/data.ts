@@ -4,23 +4,16 @@
 // components. Greeting time-of-day glyphs and the streak flame are dropped from
 // data and handled in-component (drop the emoji entirely or use a Phosphor flame).
 
+// V1 launch markets — four countries we have rich curriculum coverage for.
+// Other markets fall back to English/general content if accessed via API
+// directly, but the in-app picker is gated to these four. When new countries
+// graduate from "interest list" to launched, append them here AND extend the
+// CURRICULA dict in artifacts/api-server/src/curriculum.ts.
 export const COUNTRIES = [
-  { code: "GB", name: "United Kingdom", flag: "🇬🇧", language: "English" },
   { code: "US", name: "United States", flag: "🇺🇸", language: "English" },
-  { code: "AU", name: "Australia", flag: "🇦🇺", language: "English" },
-  { code: "CA", name: "Canada", flag: "🇨🇦", language: "English" },
-  { code: "IE", name: "Ireland", flag: "🇮🇪", language: "English" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧", language: "English" },
   { code: "DE", name: "Germany", flag: "🇩🇪", language: "German" },
-  { code: "AT", name: "Austria", flag: "🇦🇹", language: "German" },
-  { code: "CH", name: "Switzerland", flag: "🇨🇭", language: "German" },
   { code: "FR", name: "France", flag: "🇫🇷", language: "French" },
-  { code: "BE", name: "Belgium", flag: "🇧🇪", language: "French" },
-  { code: "LU", name: "Luxembourg", flag: "🇱🇺", language: "French" },
-  { code: "ES", name: "Spain", flag: "🇪🇸", language: "Spanish" },
-  { code: "MX", name: "Mexico", flag: "🇲🇽", language: "Spanish" },
-  { code: "AR", name: "Argentina", flag: "🇦🇷", language: "Spanish" },
-  { code: "CO", name: "Colombia", flag: "🇨🇴", language: "Spanish" },
-  { code: "NL", name: "Netherlands", flag: "🇳🇱", language: "Dutch" },
 ] as const;
 
 export type CountryCode = (typeof COUNTRIES)[number]["code"];
@@ -60,8 +53,48 @@ export const GERMANY_GRADE_GROUPS = [
   },
 ] as const satisfies readonly GradeGroup[];
 
+// UK National Curriculum: Year 1 (age 5-6) through Year 9 (age 13-14).
+// Year 1-2 = Key Stage 1; Year 3-6 = Key Stage 2; Year 7+ = Key Stage 3.
+// Mirrors the canonical Grade 1-8 ages (~6-13) with one-year offset.
+export const UK_GRADE_GROUPS = [
+  {
+    label: "Key Stage 1",
+    grades: ["Year 1", "Year 2"],
+  },
+  {
+    label: "Key Stage 2",
+    grades: ["Year 3", "Year 4", "Year 5", "Year 6"],
+  },
+  {
+    label: "Key Stage 3",
+    grades: ["Year 7", "Year 8"],
+  },
+] as const satisfies readonly GradeGroup[];
+
+// French Éducation Nationale: CP/CE1/CE2/CM1/CM2 = primaire (ages 6-11);
+// 6ème/5ème/4ème = collège (ages 11-14).
+export const FRANCE_GRADE_GROUPS = [
+  {
+    label: "École primaire",
+    grades: ["CP", "CE1", "CE2", "CM1", "CM2"],
+  },
+  {
+    label: "Collège",
+    grades: ["6ème", "5ème", "4ème"],
+  },
+] as const satisfies readonly GradeGroup[];
+
 export function getGradeGroupsForCountry(countryCode?: string): readonly GradeGroup[] {
-  return countryCode === "DE" ? GERMANY_GRADE_GROUPS : GRADE_GROUPS;
+  switch (countryCode) {
+    case "DE":
+      return GERMANY_GRADE_GROUPS;
+    case "GB":
+      return UK_GRADE_GROUPS;
+    case "FR":
+      return FRANCE_GRADE_GROUPS;
+    default:
+      return GRADE_GROUPS;
+  }
 }
 
 export const ALL_GRADES = GRADE_GROUPS.flatMap((g) => g.grades);
