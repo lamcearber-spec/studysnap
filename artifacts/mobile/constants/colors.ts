@@ -1,81 +1,92 @@
+// BaraBara design tokens — exposed via the legacy useColors() hook so every
+// screen that still consumes `colors.background`, `colors.primary` etc.
+// automatically picks up the Modern Schoolyard aesthetic without per-screen
+// rewrites. Field names are kept identical to the original scaffold so no
+// call-sites need updating. The canonical token source remains
+// `app/_components/tokens.ts` (C + F) for screens that opt in to the strict
+// Modern Schoolyard component vocabulary.
+
 const colors = {
   light: {
-    text: "#1A1A2E",
-    tint: "#4F46E5",
+    text: "#1B1C1C",
+    tint: "#2D5A27",
 
-    background: "#F7F8FC",
-    foreground: "#1A1A2E",
+    background: "#FAF9F6",
+    foreground: "#1B1C1C",
 
     card: "#FFFFFF",
-    cardForeground: "#1A1A2E",
+    cardForeground: "#1B1C1C",
 
-    primary: "#4F46E5",
+    primary: "#2D5A27",
     primaryForeground: "#FFFFFF",
 
-    secondary: "#EEF2FF",
-    secondaryForeground: "#4F46E5",
+    secondary: "#F4F1ED",
+    secondaryForeground: "#154212",
 
-    muted: "#F1F5F9",
-    mutedForeground: "#64748B",
+    muted: "#F4F1ED",
+    mutedForeground: "#72796E",
 
-    accent: "#F59E0B",
-    accentForeground: "#FFFFFF",
+    accent: "#F7D060",
+    accentForeground: "#745B00",
 
-    destructive: "#EF4444",
+    destructive: "#BA1A1A",
     destructiveForeground: "#FFFFFF",
 
-    border: "#E2E8F0",
-    input: "#E2E8F0",
+    border: "#C2C9BB",
+    input: "#C2C9BB",
 
-    success: "#10B981",
+    success: "#2D5A27",
     successForeground: "#FFFFFF",
 
-    math: "#4F46E5",
-    science: "#10B981",
-    english: "#F59E0B",
-    history: "#EF4444",
-    art: "#8B5CF6",
-    other: "#6B7280",
+    // Subject colors — warm earthen palette aligned with the brand.
+    math: "#2D5A27",
+    science: "#1F6E7A",
+    english: "#745B00",
+    history: "#8B1A1A",
+    art: "#7B1F2A",
+    other: "#72796E",
   },
+
   dark: {
-    text: "#F1F5F9",
-    tint: "#818CF8",
+    text: "#E8E4D9",
+    tint: "#A1D494",
 
-    background: "#0F172A",
-    foreground: "#F1F5F9",
+    background: "#16130C",
+    foreground: "#E8E4D9",
 
-    card: "#1E293B",
-    cardForeground: "#F1F5F9",
+    card: "#221E18",
+    cardForeground: "#E8E4D9",
 
-    primary: "#818CF8",
-    primaryForeground: "#0F172A",
+    primary: "#A1D494",
+    primaryForeground: "#16130C",
 
-    secondary: "#1E293B",
-    secondaryForeground: "#818CF8",
+    secondary: "#2A2620",
+    secondaryForeground: "#A1D494",
 
-    muted: "#1E293B",
-    mutedForeground: "#94A3B8",
+    muted: "#2A2620",
+    mutedForeground: "#9A938A",
 
-    accent: "#FBBF24",
-    accentForeground: "#0F172A",
+    accent: "#F7D060",
+    accentForeground: "#16130C",
 
-    destructive: "#F87171",
-    destructiveForeground: "#0F172A",
+    destructive: "#FFB4AB",
+    destructiveForeground: "#16130C",
 
-    border: "#334155",
-    input: "#334155",
+    border: "#3D362F",
+    input: "#3D362F",
 
-    success: "#34D399",
-    successForeground: "#0F172A",
+    success: "#A1D494",
+    successForeground: "#16130C",
 
-    math: "#818CF8",
-    science: "#34D399",
-    english: "#FBBF24",
-    history: "#F87171",
-    art: "#A78BFA",
-    other: "#94A3B8",
+    math: "#A1D494",
+    science: "#8BD2DF",
+    english: "#F5BE44",
+    history: "#FFB3AC",
+    art: "#FFB3AC",
+    other: "#9A938A",
   },
-  radius: 14,
+
+  radius: 12,
 };
 
 export default colors;
