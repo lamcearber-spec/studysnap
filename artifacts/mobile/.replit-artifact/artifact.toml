@@ -1,6 +1,6 @@
 kind = "mobile"
   previewPath = "/"
-  title = "BaraBara"
+  title = "MarmotMakesMath"
   version = "1.0.0"
   id = "artifacts/mobile"
   router = "expo-domain"
@@ -25,4 +25,3 @@ kind = "mobile"
   [services.env]
   PORT = "18115"
   BASE_PATH = "/"
-  
