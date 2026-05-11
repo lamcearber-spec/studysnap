@@ -287,61 +287,49 @@ function toExerciseResponse(exercise: VisionExercise): ExerciseResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Azure OpenAI vision call (GPT-5.1)
+// OpenAI vision call (GPT-4o via Replit AI integration)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getAzureClient() {
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const apiVersion = process.env.AZURE_OPENAI_API_VERSION ?? "2024-12-01-preview";
+function getOpenAIClient() {
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
 
-  if (!apiKey) throw new VisionError("AZURE_OPENAI_API_KEY is required");
-  if (!endpoint) throw new VisionError("AZURE_OPENAI_ENDPOINT is required");
+  if (!apiKey) throw new VisionError("AI_INTEGRATIONS_OPENAI_API_KEY is required");
 
-  return new OpenAI({
-    apiKey,
-    baseURL: `${endpoint.replace(/\/+$/, "")}/openai/deployments`,
-    defaultQuery: { "api-version": apiVersion },
-    defaultHeaders: { "api-key": apiKey },
-  });
+  return new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 }
 
 async function generateVisionOutput(input: GenerateRequest): Promise<VisionOutput> {
-  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
-  if (!deployment) throw new VisionError("AZURE_OPENAI_DEPLOYMENT is required");
-
-  const client = getAzureClient();
+  const client = getOpenAIClient();
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o";
   const imageBase64 = normalizeBase64(input.imageBase64);
 
-  const response = await client.chat.completions.create(
-    {
-      model: deployment,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: "high" },
-            },
-            { type: "text", text: buildUserMessage(input) },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 6144,
-    },
-    { path: `/${deployment}/chat/completions` },
-  );
+  const response = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: "high" },
+          },
+          { type: "text", text: buildUserMessage(input) },
+        ],
+      },
+    ],
+    response_format: { type: "json_object" },
+    max_completion_tokens: 6144,
+  });
 
   const text = response.choices[0]?.message?.content;
-  if (!text) throw new VisionError("Azure GPT-5.1 returned an empty response");
+  if (!text) throw new VisionError("OpenAI returned an empty response");
 
   try {
     return visionOutputSchema.parse(JSON.parse(text));
   } catch (error) {
-    throw new VisionError(error instanceof Error ? error.message : "Invalid Azure response");
+    throw new VisionError(error instanceof Error ? error.message : "Invalid OpenAI response");
   }
 }
 
@@ -407,14 +395,12 @@ async function generateHeroScene(prompt: string): Promise<Buffer> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getStoragePath() {
-  const path = process.env.STORAGE_PATH;
-  if (!path) throw new ImageEditError("STORAGE_PATH is required");
-  return path;
+  return process.env.STORAGE_PATH ?? "/tmp/marmot-storage";
 }
 
 function getStoragePublicUrl(key: string) {
-  const publicUrl = process.env.STORAGE_PUBLIC_URL;
-  if (!publicUrl) throw new ImageEditError("STORAGE_PUBLIC_URL is required");
+  const publicUrl = process.env.STORAGE_PUBLIC_URL ?? "";
+  if (!publicUrl) return null;
   return `${publicUrl.replace(/\/+$/, "")}/${key}`;
 }
 
@@ -437,12 +423,16 @@ async function storeHeroScene(prompt: string): Promise<string> {
   const fullPath = join(storagePath, key);
 
   if (await fileExists(fullPath)) {
-    return getStoragePublicUrl(key);
+    const url = getStoragePublicUrl(key);
+    if (!url) throw new ImageEditError("STORAGE_PUBLIC_URL is required to serve hero scenes");
+    return url;
   }
 
   const buffer = await generateHeroScene(prompt);
   await writeFile(fullPath, buffer);
-  return getStoragePublicUrl(key);
+  const url = getStoragePublicUrl(key);
+  if (!url) throw new ImageEditError("STORAGE_PUBLIC_URL is required to serve hero scenes");
+  return url;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
