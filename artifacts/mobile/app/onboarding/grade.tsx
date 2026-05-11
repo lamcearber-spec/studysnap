@@ -33,14 +33,14 @@ export default function OnboardingGrade() {
   const gradeGroups = getGradeGroupsForCountry(params.countryCode);
   const copy = isGermany
     ? {
-        step: "Schritt 2 von 4",
+        step: "Schritt 2 von 3",
         title: `Welche Klasse besuchst du${params.name ? `, ${params.name}` : ""}?`,
         subtitle: "Wir erstellen Übungen auf Deutsch und passend zu deinem Schulsystem",
         emptyCta: "Wähle deine Klasse",
         selectedCta: (grade: string) => `Weiter mit ${grade}`,
       }
     : {
-        step: "Step 2 of 4",
+        step: "Step 2 of 3",
         title: `What grade are you in${params.name ? `, ${params.name}` : ""}?`,
         subtitle: "We'll adjust exercises to your level",
         emptyCta: "Select your grade",
@@ -53,7 +53,7 @@ export default function OnboardingGrade() {
     if (!selectedGrade) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
-      pathname: "/onboarding/subjects",
+      pathname: "/onboarding/difficulty",
       params: { ...params, language, grade: selectedGrade },
     });
   };
@@ -71,7 +71,7 @@ export default function OnboardingGrade() {
         <Text style={styles.headerTitle}>{copy.title}</Text>
         <Text style={styles.headerSub}>{copy.subtitle}</Text>
         <View style={styles.dotsRow}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2].map((i) => (
             <View
               key={i}
               style={[styles.dot, i <= 1 ? styles.dotActive : styles.dotInactive]}

@@ -57,14 +57,14 @@ export default function OnboardingCountry() {
         colors={[colors.primary, "#6366F1"]}
         style={[styles.header, { paddingTop: top + 20 }]}
       >
-        <Text style={styles.stepLabel}>Step 1 of 4</Text>
+        <Text style={styles.stepLabel}>Step 1 of 3</Text>
         <Text style={styles.headerEmoji}>👋</Text>
         <Text style={styles.headerTitle}>Let's get started!</Text>
         <Text style={styles.headerSub}>
           Tell us your name and where you're from
         </Text>
         <View style={styles.dotsRow}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2].map((i) => (
             <View
               key={i}
               style={[styles.dot, i === 0 ? styles.dotActive : styles.dotInactive]}

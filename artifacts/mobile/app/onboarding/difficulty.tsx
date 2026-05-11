@@ -33,7 +33,6 @@ export default function OnboardingDifficulty() {
     countryName: string;
     language: string;
     grade: string;
-    subjects: string;
   }>();
   const isWeb = Platform.OS === "web";
   const top = isWeb ? 60 : insets.top;
@@ -43,7 +42,7 @@ export default function OnboardingDifficulty() {
   const difficulties = getDifficultiesForLanguage(language);
   const copy = isGerman
     ? {
-        step: "Schritt 4 von 4",
+        step: "Schritt 3 von 3",
         title: "Wie schwer soll es sein?",
         subtitle: "Wie schwierig sollen die Übungen im Vergleich zu deinen Schulaufgaben sein?",
         ritual: "Seite fotografieren → wir machen passende Übungen → dein Kind löst sie → du markierst ✓ oder ✗.",
@@ -51,7 +50,7 @@ export default function OnboardingDifficulty() {
         selectedCta: "Los geht's!",
       }
     : {
-        step: "Step 4 of 4",
+        step: "Step 3 of 3",
         title: "How hard should it be?",
         subtitle: "How difficult should the practice exercises be compared to your classwork?",
         ritual: "Snap a page → we make matching practice → your child works it out → you mark ✓ or ✗.",
@@ -72,7 +71,7 @@ export default function OnboardingDifficulty() {
       countryName: params.countryName,
       language,
       grade: params.grade,
-      subjects: params.subjects.split(",").filter(Boolean),
+      subjects: ["math"],
       difficulty: selected,
     });
     router.replace("/");
@@ -90,7 +89,7 @@ export default function OnboardingDifficulty() {
         <Text style={styles.headerSub}>{copy.subtitle}</Text>
         <Text style={styles.ritualSub}>{copy.ritual}</Text>
         <View style={styles.dotsRow}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2].map((i) => (
             <View key={i} style={styles.dotActive} />
           ))}
         </View>

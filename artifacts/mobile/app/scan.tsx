@@ -25,7 +25,7 @@ import { useSession } from "@/context/SessionContext";
 import { useProfile } from "@/context/ProfileContext";
 import { maybeRequestReview } from "@/hooks/useAppReview";
 import { useColors } from "@/hooks/useColors";
-import { getGradeGroupsForCountry, getSubjectsForLanguage } from "@/constants/data";
+import { getGradeGroupsForCountry } from "@/constants/data";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
 import type { GenerateExercisesResponse, QuotaExceededError } from "@workspace/api-client-react";
@@ -105,7 +105,6 @@ export default function ScanScreen() {
 
   // Defaults from profile, overrideable per scan
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string>(profile?.grade ?? "Grade 5");
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -113,8 +112,6 @@ export default function ScanScreen() {
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = isWeb ? 34 : insets.bottom;
 
-  const profileSubjects = profile?.subjects ?? [];
-  const subjectsList = getSubjectsForLanguage(profile?.language);
   const gradeOptions = useMemo(
     () => getGradeGroupsForCountry(profile?.countryCode).flatMap((group) => group.grades),
     [profile?.countryCode]
@@ -140,8 +137,7 @@ export default function ScanScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.85,
-      allowsEditing: true,
-      aspect: [3, 4],
+      allowsEditing: false,
     });
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
@@ -158,8 +154,7 @@ export default function ScanScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.85,
-      allowsEditing: true,
-      aspect: [3, 4],
+      allowsEditing: false,
     });
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
@@ -193,7 +188,6 @@ export default function ScanScreen() {
         body: JSON.stringify({
           imageBase64: base64,
           appUserId,
-          subject: selectedSubject ?? undefined,
           grade: selectedGrade,
           language: profile?.language ?? "English",
           difficulty: profile?.difficulty ?? "same",
@@ -354,40 +348,6 @@ export default function ScanScreen() {
 
         {imageUri && (
           <>
-            {/* Subject selector — profile subjects first */}
-            <View>
-              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Subject (optional)</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-                <View style={styles.chipsRow}>
-                  {/* Profile subjects first, then rest */}
-                  {[
-                    ...subjectsList.filter((s) => profileSubjects.includes(s.id)),
-                    ...subjectsList.filter((s) => !profileSubjects.includes(s.id)),
-                  ].map((s) => (
-                    <Pressable
-                      key={s.id}
-                      style={[
-                        styles.chip,
-                        {
-                          backgroundColor: selectedSubject === s.id ? colors.primary : colors.muted,
-                          borderColor: selectedSubject === s.id ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedSubject(selectedSubject === s.id ? null : s.id);
-                        Haptics.selectionAsync();
-                      }}
-                    >
-                      {/* emoji dropped in MarmotMakesMath rebrand — icons handled by SubjectIcon component */}
-                      <Text style={[styles.chipText, { color: selectedSubject === s.id ? "#fff" : colors.foreground }]}>
-                        {s.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-
             {/* Grade override */}
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Grade</Text>
