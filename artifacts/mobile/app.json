@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "BaraBara",
-    "slug": "barabara",
+    "name": "MarmotMakesMath",
+    "slug": "marmot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/mascot/icon.png",
-    "scheme": "barabara",
+    "scheme": "marmot",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -32,8 +32,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow BaraBara to access your photos to upload classwork pages.",
-          "cameraPermission": "Allow BaraBara to use the camera to photograph your classwork."
+          "photosPermission": "Allow MarmotMakesMath to access your photos to upload classwork pages.",
+          "cameraPermission": "Allow MarmotMakesMath to use the camera to photograph your classwork."
         }
       ]
     ],

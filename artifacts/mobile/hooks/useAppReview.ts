@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as StoreReview from "expo-store-review";
 
-// Legacy AsyncStorage key — preserved across the StudySnap → BaraBara rebrand
+// Legacy AsyncStorage key — preserved across the StudySnap → MarmotMakesMath rebrand
 // so existing users' "already prompted N times" state survives the migration.
 const STORAGE_KEY = "@studysnap_review_count";
 const THRESHOLDS = [10, 20]; // sessions at which to prompt

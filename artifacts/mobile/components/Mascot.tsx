@@ -20,7 +20,7 @@ export function Mascot({
       style={{ width: size, height: size }}
       contentFit="contain"
       transition={200}
-      accessibilityLabel="BaraBara capybara mascot"
+      accessibilityLabel="MarmotMakesMath marmot mascot"
     />
   );
 }

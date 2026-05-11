@@ -1,13 +1,13 @@
-// BaraBara take design tokens — exposed via the legacy useColors() hook so
+// MarmotMakesMath take design tokens — exposed via the legacy useColors() hook so
 // every screen that consumes `colors.background`, `colors.primary` etc.
 // auto-adopts the new palette. Mirrors `app/_components/tokens.ts` (C).
-// Reference: radom-vault/projects/designproject/barabara-market-research.md
+// Reference: radom-vault/projects/designproject/marmot-market-research.md
 
 const colors = {
   light: {
     // Core
     text: "#3A3A3A",             // Slate
-    tint: "#A76A4A",             // Capybara Brown
+    tint: "#A76A4A",             // Marmot Brown
 
     // Surfaces
     background: "#FAF3E7",        // Cream — primary background
@@ -16,7 +16,7 @@ const colors = {
     card: "#FFFFFF",
     cardForeground: "#3A3A3A",
 
-    // Primary (Capybara Brown)
+    // Primary (Marmot Brown)
     primary: "#A76A4A",
     primaryForeground: "#FFFFFF",
 
@@ -44,13 +44,13 @@ const colors = {
     success: "#7BB37A",
     successForeground: "#FFFFFF",
 
-    // Subject colors — selected from the BaraBara 6-color palette so subject
+    // Subject colors — selected from the MarmotMakesMath 6-color palette so subject
     // accents never escape the brand. Each subject gets one warm shade.
-    math: "#A76A4A",       // Capybara Brown
+    math: "#A76A4A",       // Marmot Brown
     science: "#7BB37A",    // Sage
     english: "#FFB627",    // Citrus
     history: "#E0533D",    // Cardinal
-    art: "#8A5538",        // Capybara Dark
+    art: "#8A5538",        // Marmot Dark
     other: "#8A8378",      // Ink Muted
   },
 
@@ -64,7 +64,7 @@ const colors = {
     card: "#2A211A",
     cardForeground: "#FAF3E7",
 
-    primary: "#D6A98C",            // light Capybara for dark mode
+    primary: "#D6A98C",            // light Marmot for dark mode
     primaryForeground: "#1F1812",
 
     secondary: "#3A2E25",

@@ -10,14 +10,52 @@ import React, {
 export type ExerciseType = "multiple-choice" | "short-answer" | "fill-blank";
 export type ExerciseStatus = "pending" | "correct" | "wrong";
 
+export type CardType =
+  | "numberInput"
+  | "multipleChoice"
+  | "textInput"
+  | "tapToMark"
+  | "freeDrawing"
+  | "connectPairs";
+
+export interface ExerciseVisual {
+  primitive: string;
+  props: Record<string, unknown>;
+}
+
+export interface TapToMarkItem {
+  id: string;
+  label: string;
+}
+
+export interface ConnectPair {
+  left: string;
+  right: string;
+}
+
+export type UserAnswer =
+  | string
+  | { marked: string[] }
+  | { connections: { left: string; right: string }[] }
+  | { strokes: unknown[]; pngBase64?: string };
+
 export interface Exercise {
   id: string;
   question: string;
   type: ExerciseType;
+  cardType?: CardType;
   options?: string[];
   answer?: string;
   imageUrl?: string;
+  visual?: ExerciseVisual;
   status?: ExerciseStatus;
+  // Card-type-specific generation fields
+  tapToMarkItems?: TapToMarkItem[];
+  tapToMarkTarget?: number;
+  pairs?: ConnectPair[];
+  drawingPrompt?: string;
+  // Persisted user input (for "complete in-app" mode)
+  userAnswer?: UserAnswer;
 }
 
 export interface Session {
@@ -41,12 +79,13 @@ interface SessionContextType {
   deleteSession: (id: string) => Promise<void>;
   getSession: (id: string) => Session | undefined;
   setExerciseStatus: (sessionId: string, exerciseId: string, status: ExerciseStatus) => Promise<void>;
+  setExerciseAnswer: (sessionId: string, exerciseId: string, answer: UserAnswer | undefined) => Promise<void>;
   isLoading: boolean;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-// Legacy AsyncStorage key — preserved across the StudySnap → BaraBara rebrand
+// Legacy AsyncStorage key — preserved across the StudySnap → MarmotMakesMath rebrand
 // so existing users' on-device session history survives the migration.
 const STORAGE_KEY = "@studysnap_sessions";
 
@@ -116,6 +155,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setExerciseAnswer = useCallback(async (
+    sessionId: string,
+    exerciseId: string,
+    answer: UserAnswer | undefined,
+  ) => {
+    setSessions((prev) => {
+      const updated = prev.map((session) => {
+        if (session.id !== sessionId) return session;
+        const exercises = session.exercises.map((exercise) =>
+          exercise.id === exerciseId ? { ...exercise, userAnswer: answer } : exercise
+        );
+        return { ...session, exercises };
+      });
+      saveSessions(updated);
+      return updated;
+    });
+  }, []);
+
   const deleteSession = useCallback(async (id: string) => {
     setSessions((prev) => {
       const updated = prev.filter((s) => s.id !== id);
@@ -138,6 +195,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         deleteSession,
         getSession,
         setExerciseStatus,
+        setExerciseAnswer,
         isLoading,
       }}
     >

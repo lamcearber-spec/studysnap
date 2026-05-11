@@ -283,7 +283,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => selectDifficulty(d.id)}
                 >
-                  <Text style={styles.diffEmoji}>{d.emoji}</Text>
+                  {/* emoji dropped in rebrand — DifficultyIcon handles it */}
                   <View style={styles.diffText}>
                     <Text style={[styles.diffLabel, { color: isSelected ? d.color : colors.foreground }]}>
                       {d.label}
@@ -322,7 +322,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => toggleSubject(subject.id)}
                 >
-                  <Text style={styles.subjectEmoji}>{subject.emoji}</Text>
+                  {/* emoji dropped in rebrand — SubjectIcon handles it */}
                   <Text
                     style={[styles.subjectLabel, { color: isSelected ? "#fff" : colors.foreground }]}
                     numberOfLines={2}

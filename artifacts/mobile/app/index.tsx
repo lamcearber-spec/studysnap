@@ -455,8 +455,8 @@ export default function HomeScreen() {
           <SettingsButton />
         </View>
 
-        {/* Hero — full-bleed cream block with Capybara mascot 3/4 view +
-            Duo-style headline + 3D fat rounded CTA in Capybara Brown.
+        {/* Hero — full-bleed cream block with Marmot mascot 3/4 view +
+            Duo-style headline + 3D fat rounded CTA in Marmot Brown.
             Matches the App Store screenshot pattern of category winners. */}
         <View style={styles.hero}>
           <View style={styles.heroMascot}>
@@ -506,7 +506,23 @@ export default function HomeScreen() {
         {/* Trophy shelf */}
         {sessions.length > 0 && (
           <View>
-            <SectionHead kicker="RECENT" title="Trophy shelf" />
+            <View style={styles.sectionHeadRow}>
+              <SectionHead kicker="RECENT" title="Trophy shelf" />
+              {sessions.length > 5 && (
+                <Pressable
+                  onPress={() => {
+                    if (!isWeb) Haptics.selectionAsync();
+                    router.push("/worksheets");
+                  }}
+                  style={styles.viewAllLink}
+                  accessibilityRole="button"
+                  accessibilityLabel="View all worksheets"
+                >
+                  <Text style={styles.viewAllText}>View all</Text>
+                  <Ionicons name="chevron-forward" size={14} color={C.primary} />
+                </Pressable>
+              )}
+            </View>
             <View style={{ gap: 12 }}>
               {sessions.slice(0, 5).map((session) => {
                 const counts = getReviewCounts(session);
@@ -598,7 +614,7 @@ const styles = StyleSheet.create({
     color: C.yellowDeep,
   },
 
-  // ─── Hero — full-bleed Capybara block ──────────────────────────────────
+  // ─── Hero — full-bleed Marmot block ──────────────────────────────────
   hero: {
     backgroundColor: C.primary,
     borderRadius: 20,
@@ -794,6 +810,9 @@ const styles = StyleSheet.create({
 
   // Section head
   sectionHead: { marginBottom: 12 },
+  sectionHeadRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+  viewAllLink: { flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 6, paddingHorizontal: 4, marginBottom: 12 },
+  viewAllText: { fontFamily: F.bodySemi, fontSize: 13, color: C.primary },
   sectionTitle: {
     fontFamily: F.displaySemi, fontSize: 22, color: C.ink, letterSpacing: -0.3,
   },

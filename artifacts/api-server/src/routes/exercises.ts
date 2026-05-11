@@ -1,10 +1,9 @@
-import { HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { fal } from "@fal-ai/client";
-import { GoogleGenAI, Type, type Schema } from "@google/genai";
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { mkdir, writeFile, access } from "node:fs/promises";
+import { join } from "node:path";
 import { Router } from "express";
-import sharp from "sharp";
+import OpenAI from "openai";
 import { z } from "zod";
 import { getCurriculumContext } from "../curriculum.js";
 import { ImageEditError, QuotaExceededError, VisionError } from "../errors.js";
@@ -12,9 +11,10 @@ import { getUsageQuota, reserveImageQuota, type UsageQuota } from "../db/client.
 
 const router = Router();
 
-const SYSTEM_PROMPT = `You are a senior curriculum designer and assessment-item writer for the BaraBara
-practice app. Your job: turn a photograph of a child's classwork into a parallel
-practice worksheet that builds the same skills with different content.
+const SYSTEM_PROMPT = `You are a senior curriculum designer and assessment-item writer for the
+MarmotMakesMath practice app. Your job: turn a photograph of a child's
+math classwork into a parallel practice worksheet that builds the same
+skills with different content.
 
 ═══ ROLE & STANDARDS ═══
 
@@ -31,127 +31,91 @@ formative-assessment question. Your reputation rests on:
 2. CURRICULUM AUTHENTICITY — when the user provides a country and grade, the
    national-curriculum block in the user message names the framework, the
    grade-band label, and the topics typical for that band. Use the EXACT
-   terminology, vocabulary, and question phrasing that framework uses. If
-   the framework is England's National Curriculum, write "How many fewer?"
-   not "How much less?". If it's German Lehrplan, use "Welche Zahl fehlt?"
-   not "Welche Nummer fehlt?". If it's French Éducation Nationale, use
-   "Calcule" / "Trouve" imperatives. If it's US Common Core, mirror SBA/PARCC
-   item phrasing where natural.
+   terminology, vocabulary, and question phrasing that framework uses.
 
 3. CULTURAL + LINGUISTIC LOCALISATION — names, currencies, units, places,
    foods, holidays, sports, and proper nouns must match the country:
    • United States 🇺🇸 — names: Aiden, Maya, Jamal, Sofia. Currency: $ / cents.
-     Units: inches, feet, miles, oz, lb, °F. Sports: baseball, basketball.
+     Units: inches, feet, miles, oz, lb, °F.
    • United Kingdom 🇬🇧 — names: Oliver, Amelia, Noah, Aisha. Currency: £ / p.
-     Units: cm, m, km, g, kg, °C. Sports: football, cricket, rounders.
-     Spelling: British (colour, recognise, maths).
+     Units: cm, m, km, g, kg, °C. Spelling: British.
    • Germany 🇩🇪 — names: Lukas, Mia, Felix, Emma, Yusuf. Währung: € / Cent.
-     Einheiten: cm, m, km, g, kg, °C. Sport: Fußball, Handball.
+     Einheiten: cm, m, km, g, kg, °C.
    • France 🇫🇷 — prénoms: Lucas, Emma, Léo, Chloé, Yanis. Monnaie: € / centimes.
-     Unités: cm, m, km, g, kg, °C. Sports: football, judo.
-   Vary names across the 8 exercises — do not use "Sarah" four times.
+     Unités: cm, m, km, g, kg, °C.
+   • Spain 🇪🇸 — nombres: Hugo, Lucía, Daniel, Sofía. Moneda: € / céntimos.
+     Unidades: cm, m, km, g, kg, °C.
+   Vary names across exercises — do not use the same name multiple times.
+
+═══ SCOPE — MATH ONLY ═══
+
+MarmotMakesMath is a math-only practice app. Generate ONLY math exercises:
+arithmetic, word problems, fractions, decimals, percentages, geometry, time,
+money, units, patterns, simple algebra, data + graphs. If the photographed
+worksheet is NOT math (reading, writing, science, etc.), return an empty
+exercises array and set subject="Non-math" with topic="Not a math worksheet".
 
 ═══ INPUT INTERPRETATION ═══
 
 The image may be a full worksheet page OR a tightly-cropped single exercise.
 Treat both identically:
-1. Count every DISTINCT exercise in the image. Number them.
+1. Count every DISTINCT math exercise. Number them.
 2. For each, identify (a) the skill being tested, (b) the question type, (c) any
-   visual elements (drawings, diagrams, clocks, money, shapes, charts).
+   visual elements (cubes, fractions, clocks, money, shapes, charts).
 3. Generate exactly that many parallel exercises — one variation per original,
    preserved order.
 
-If the input is illegible or contains no exercises, return an empty exercises
-array and set subject="Unknown", topic="Unable to read".
-
 ═══ DIFFICULTY CONTRACT ═══
 
-The user specifies difficulty: easier / same / harder. Calibrate concretely:
+EASIER: scaffold without skipping the skill. Reduce numbers ~30%. Add a one-line
+hint. Keep skill identical.
 
-EASIER: scaffold without skipping the skill. Examples:
-  • Original: "47 + 28 = ?" → Easier: "47 + 28 = ? Hint: Start by adding 40 + 20."
-  • Original: "Read the passage and find the main idea." → Easier: "Read the
-    short passage. The main idea is mentioned in the FIRST sentence — what is it?"
-  Reduce numbers by ~30%. Add a one-line hint. Keep the skill identical.
+SAME: structurally identical, content varied. Numbers may shift ±20%.
 
-SAME: structurally identical, content varied. Same number of steps, same
-vocabulary tier, same question stem pattern. Numbers may go ±20%.
+HARDER: extend without changing topic. Add ONE step OR slightly more abstract
+framing. Do NOT just inflate numbers.
 
-HARDER: extend without changing topic. Examples:
-  • Original: "47 + 28 = ?" → Harder: "47 + 28 + 19 = ?" or "I have 47 stickers.
-    My friend has 28 more than me. How many do we have together?" (2-step).
-  • Original: "Find the area of this rectangle." → Harder: "Find the area, then
-    say how many tiles of side 2cm would cover it."
-  Add one extra step OR move from concrete to slightly abstract. Stay in topic.
+═══ VISUAL SPECIFICATION (procedural primitives) ═══
 
-NEVER make HARDER mean "bigger numbers in a one-step problem". That's not a
-skill increase, it's a tedium increase.
+When an original exercise has a visual element (e.g. "count the cubes",
+"shade 1/4 of the circle", "what time is shown"), provide a 'visual' field in
+the parallel exercise referencing ONE of these 15 procedural primitives the
+client renders client-side. NEVER specify a raster image.
 
-═══ VISUAL DECISION TREE ═══
+Available primitives + example props:
+• CubeArray         { count: 7, layout: "2x3+1" }
+• DotArray          { count: 13, frameType: "tenFrame" | "grid" }
+• Fraction          { whole: 4, parts: 1, style: "pie" | "bar" | "numberLine" }
+• Clock             { hours: 3, minutes: 30, style: "analog" | "digital" }
+• NumberLine        { min: 0, max: 20, marks: [3, 7, 12] }
+• ShapeBasic        { type: "triangle" | "square" | "rectangle" | "circle" | "pentagon" | "hexagon", size: 80 }
+• Money             { currency: "EUR" | "USD" | "GBP", denominations: [50, 20, 10, 5] }
+• Scale             { leftWeight: 5, rightWeight: 3 }
+• Thermometer       { value: 22, unit: "C" | "F", min: 0, max: 40 }
+• BarChart          { data: [{ label: "Mon", value: 5 }] }
+• PieChart          { slices: [{ label: "A", value: 25 }] }
+• AreaGrid          { rows: 4, cols: 6, shaded: [0, 1] }
+• TallyMarks        { count: 13 }
+• GeometricSolid    { type: "cube" | "sphere" | "cylinder" | "cone" | "prism", size: 80 }
+• PatternSequence   { pattern: ["A", "B", "A", "?", "A", "B"], answer: "B" }
 
-For each exercise, decide whether it NEEDS a visual:
-
-REQUIRES visual:
-  • Counting / sorting / comparison of concrete sets
-  • Time-telling on an analogue clock
-  • Money counting (coins / notes)
-  • Geometry — naming or measuring 2D/3D shapes
-  • Reading bar charts, pictograms, line graphs
-  • Pattern continuation (shape sequences)
-  • Map / diagram / labelled-drawing tasks
-
-TEXT-ONLY (no visual):
-  • Pure arithmetic with digits already in the question
-  • Word problems with numbers spelled in the text
-  • Vocabulary, spelling, grammar
-  • Reading comprehension where the passage is the visual
-  • Multiple-choice on facts or concepts
-  • Equations, formulas, units conversions
-
-When you decide YES on a visual, identify the source region in the photograph
-that shows similar visual content. Emit a TIGHT bounding box
-[x_min, y_min, x_max, y_max] in pixel coordinates of the original photo, plus
-a short editInstruction. Use unique sourceImage ids ("img_1", "img_2"…).
-
-═══ EDIT-INSTRUCTION DISCIPLINE ═══
-
-The editInstruction is sent verbatim to FLUX.1 Kontext, which edits the
-cropped source region. Rules:
-1. Action verbs only: "add", "remove", "change", "show … instead of …".
-2. Count-explicit: "add 3 apples", not "add some apples".
-3. Position-light: "in the same arrangement", "at the bottom right".
-4. Style-preserving: ALWAYS append ", in the same flat-illustration style
-   as the original" so Kontext does not re-style the image.
-5. No more than 25 words. The model performs better with terse prompts.
-
-Examples:
-  ✓ "Remove 2 apples and add 4 pears, in the same flat-illustration style."
-  ✓ "Show the clock at 7:45 instead of 3:15, in the same illustration style."
-  ✓ "Show 3 quarters and 2 dimes, replacing the original coins, same style."
-  ✗ "Make it more like a picture of fruits with some new ones."  (too vague)
-  ✗ "Add some additional fruits so the kid has to count them again."  (count-vague)
+Set visual to null for purely-arithmetic exercises that don't need a picture.
 
 ═══ OUTPUT CONTRACT ═══
 
-Return STRICT JSON only. No markdown, no code fences, no commentary, no
-trailing prose. The JSON schema is enforced by the API; conform exactly:
-
+Return STRICT JSON of shape:
 {
-  "subject": string,           // e.g. "Math", "Mathématiques", "Mathematik", "Reading"
-  "topic": string,             // specific topic, e.g. "2-digit subtraction with borrowing"
-  "sourceImages": [
-    { "id": "img_1", "bbox": [x_min, y_min, x_max, y_max], "description": string }
-  ],
-  "exercises": [
+  subject: string,                     // e.g. "Math"
+  topic: string,                       // e.g. "Two-digit addition with regrouping"
+  exercises: [
     {
-      "id": "ex_1",
-      "type": "multiple-choice" | "short-answer" | "fill-blank",
-      "question": string,      // the exercise prompt the child reads
-      "options": string[],     // ONLY for multiple-choice; exactly 4 options
-      "answer": string,        // the canonical correct answer (for parent-reveal only)
-      "visual": null | { "sourceImageId": "img_1", "editInstruction": string }
+      id: string,                      // stable per-position, e.g. "ex-1"
+      type: "multiple-choice" | "short-answer" | "fill-blank",
+      question: string,                // localised to the user's language
+      options: string[]?,              // exactly 4 if multiple-choice
+      answer: string,                  // canonical correct answer
+      visual: { primitive: string, props: object } | null
     }
-    // ... one per detected original exercise
   ]
 }
 
@@ -159,22 +123,20 @@ Strict requirements:
 • Write subject / topic / questions / options / answers ALL in the user's language.
 • Multiple-choice: exactly 4 options. The correct one MUST be one of them.
 • Plausibility distractors: wrong options should be common errors, not random.
-  E.g., for "47 - 28 = ?" use distractors {19, 21, 25} — common borrow-bug
-  answers — not {137, 4, 100} which the child would never write.
-• answer field: provide the canonical answer even for fill-blank and
-  short-answer; the parent uses it to grade ✓ / ✗.
-• If exercises is empty, subject MUST be "Unknown" and topic "Unable to read".
+• answer field: provide the canonical answer even for fill-blank and short-answer
+  — the parent uses it to grade ✓ / ✗.
+• If exercises is empty, subject MUST be "Non-math" and topic "Not a math worksheet".
 
 ═══ ANTI-PATTERNS — NEVER ═══
 
 • NEVER use "Sarah", "John", or other clichéd AI names if a country is set.
-• NEVER write currency mismatched to the country ($ in a UK exercise).
-• NEVER write a HARDER variant that is just a SAME variant with bigger numbers.
+• NEVER write currency mismatched to the country.
+• NEVER write a HARDER variant that is just SAME with bigger numbers.
 • NEVER include emoji, markdown, or LaTeX in the output JSON.
-• NEVER fabricate a country/curriculum reference if no country was specified.
 • NEVER answer the exercise inside the question text.
 • NEVER write more or fewer exercises than were in the original image.
 • NEVER write a multiple-choice answer that doesn't match exactly one option.
+• NEVER specify a raster-image visual — only the 15 procedural primitives above.
 
 You are graded by parents. Be precise.`;
 
@@ -190,15 +152,9 @@ const generateRequestSchema = z.object({
   countryCode: z.string().optional(),
 });
 
-const visualInstructionSchema = z.object({
-  sourceImageId: z.string().min(1),
-  editInstruction: z.string().min(1),
-});
-
-const sourceImageSchema = z.object({
-  id: z.string().min(1),
-  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-  description: z.string(),
+const visualPrimitiveSchema = z.object({
+  primitive: z.string().min(1),
+  props: z.record(z.string(), z.any()),
 });
 
 const visionExerciseSchema = z.object({
@@ -207,28 +163,18 @@ const visionExerciseSchema = z.object({
   question: z.string().min(1),
   options: z.array(z.string()).optional(),
   answer: z.string().optional(),
-  visual: visualInstructionSchema.nullable(),
+  visual: visualPrimitiveSchema.nullable().optional(),
 });
 
 const visionOutputSchema = z.object({
   subject: z.string().min(1),
   topic: z.string().min(1),
-  sourceImages: z.array(sourceImageSchema),
   exercises: z.array(visionExerciseSchema),
-});
-
-const falImageSchema = z.object({
-  url: z.string().url(),
-});
-
-const falOutputSchema = z.object({
-  images: z.array(falImageSchema).min(1),
 });
 
 type GenerateRequest = z.infer<typeof generateRequestSchema>;
 type VisionOutput = z.infer<typeof visionOutputSchema>;
 type VisionExercise = z.infer<typeof visionExerciseSchema>;
-type SourceImage = z.infer<typeof sourceImageSchema>;
 
 type ExerciseResponse = {
   id: string;
@@ -236,6 +182,7 @@ type ExerciseResponse = {
   question: string;
   options?: string[];
   answer?: string;
+  visual?: { primitive: string; props: Record<string, unknown> };
   imageUrl?: string;
 };
 
@@ -250,79 +197,21 @@ type QuotaExceededResponse = GenerateResponse & {
   error: "QUOTA_EXCEEDED";
 };
 
-const geminiResponseSchema: Schema = {
-  type: Type.OBJECT,
-  required: ["subject", "topic", "sourceImages", "exercises"],
-  properties: {
-    subject: { type: Type.STRING },
-    topic: { type: Type.STRING },
-    sourceImages: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        required: ["id", "bbox", "description"],
-        properties: {
-          id: { type: Type.STRING },
-          bbox: {
-            type: Type.ARRAY,
-            minItems: "4",
-            maxItems: "4",
-            items: { type: Type.NUMBER },
-          },
-          description: { type: Type.STRING },
-        },
-      },
-    },
-    exercises: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        required: ["id", "type", "question", "answer", "visual"],
-        properties: {
-          id: { type: Type.STRING },
-          type: {
-            type: Type.STRING,
-            format: "enum",
-            enum: ["multiple-choice", "short-answer", "fill-blank"],
-          },
-          question: { type: Type.STRING },
-          options: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
-          answer: { type: Type.STRING },
-          visual: {
-            type: Type.OBJECT,
-            nullable: true,
-            required: ["sourceImageId", "editInstruction"],
-            properties: {
-              sourceImageId: { type: Type.STRING },
-              editInstruction: { type: Type.STRING },
-            },
-          },
-        },
-      },
-    },
-  },
-};
-
 function getDifficultyInstruction(difficulty: GenerateRequest["difficulty"]) {
   if (difficulty === "easier") {
     return [
       "DIFFICULTY: easier",
-      "- Reduce numerical magnitude by ~30% (e.g. 47 → 32, 286 → 198).",
+      "- Reduce numerical magnitude by ~30%.",
       "- Add a one-line hint at the end of the question prompt that scaffolds the first step.",
-      "- Keep the SAME skill, sub-skill, and number of steps as the original. Do not skip the skill.",
-      "- Vocabulary: prefer one-syllable verbs (find, count, add) over two- (calculate, determine).",
+      "- Keep the SAME skill, sub-skill, and number of steps.",
     ].join("\n");
   }
   if (difficulty === "harder") {
     return [
       "DIFFICULTY: harder",
-      "- Add ONE extra step OR move from concrete to slightly more abstract framing.",
+      "- Add ONE extra step OR move to slightly more abstract framing.",
       "- Stay in the SAME topic and sub-skill.",
       "- Do NOT just inflate numbers — that is tedium, not skill increase.",
-      "- Examples: '47 + 28' → '47 + 28 + 19' (one more addend); 'find area of rectangle' → 'find area then say how many 2cm tiles fit'.",
     ].join("\n");
   }
   return [
@@ -340,7 +229,6 @@ function getCurriculumInstruction(countryCode?: string, grade?: string) {
       "- Default to neutral English (American spelling, US units).",
     ].join("\n");
   }
-
   const curriculum = getCurriculumContext(countryCode, grade);
   if (!curriculum) {
     return [
@@ -349,21 +237,20 @@ function getCurriculumInstruction(countryCode?: string, grade?: string) {
       "- Use the country's typical age-cohort expectations and educational vocabulary.",
     ].join("\n");
   }
-
   return [
     `CURRICULUM: ${curriculum.systemName} — ${curriculum.gradeBandLabel}.`,
     `TOPICS + VOCABULARY: ${curriculum.context}`,
-    "BINDING: Use the exact terminology, spelling conventions, units, and question phrasing of this framework. Do not import vocabulary from other countries' curricula.",
+    "BINDING: Use the exact terminology, spelling conventions, units, and question phrasing of this framework.",
   ].join("\n");
 }
 
 function buildUserMessage(input: GenerateRequest) {
   const lines: string[] = [
     "TASK",
-    "Analyse the photographed worksheet. Count every distinct exercise. Generate exactly one parallel practice variation per original — preserve order, preserve count, preserve skill.",
+    "Analyse the photographed worksheet. Count every distinct math exercise. Generate exactly one parallel practice variation per original — preserve order, preserve count, preserve skill.",
     "",
     "INPUT METADATA",
-    input.subject ? `- Subject hint: ${input.subject}` : "- Subject hint: (none — infer from the image)",
+    input.subject ? `- Subject hint: ${input.subject}` : "- Subject hint: (none — math is the only allowed scope)",
     input.grade ? `- Grade level: ${input.grade}` : "- Grade level: (not specified)",
     input.countryCode ? `- Country: ${input.countryCode}` : "- Country: (not specified)",
     input.language
@@ -376,10 +263,10 @@ function buildUserMessage(input: GenerateRequest) {
     "",
     "REMINDER",
     "- Output STRICT JSON only. No markdown. No code fences. No commentary.",
-    "- One exercise per detected original. If you see 6, generate 6. If you see 1, generate 1.",
-    "- Plausibility distractors for multiple-choice — common errors, not random numbers.",
+    "- One exercise per detected original.",
+    "- Visuals: use ONLY the 15 procedural primitives, never raster image references.",
   ];
-  return lines.filter((line) => line !== false && line !== undefined).join("\n");
+  return lines.filter(Boolean).join("\n");
 }
 
 function normalizeBase64(imageBase64: string) {
@@ -388,243 +275,179 @@ function normalizeBase64(imageBase64: string) {
   return markerIndex >= 0 ? imageBase64.slice(markerIndex + marker.length) : imageBase64;
 }
 
-function toTextOnlyExercise(exercise: VisionExercise): ExerciseResponse {
+function toExerciseResponse(exercise: VisionExercise): ExerciseResponse {
   return {
     id: exercise.id,
     type: exercise.type,
     question: exercise.question,
     options: exercise.options,
     answer: exercise.answer,
+    visual: exercise.visual ?? undefined,
   };
 }
 
-async function generateVisionOutput(input: GenerateRequest) {
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  if (!apiKey) throw new VisionError("GOOGLE_GEMINI_API_KEY is required");
+// ─────────────────────────────────────────────────────────────────────────────
+// Azure OpenAI vision call (GPT-5.1)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const ai = new GoogleGenAI({ apiKey });
+function getAzureClient() {
+  const apiKey = process.env.AZURE_OPENAI_API_KEY;
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const apiVersion = process.env.AZURE_OPENAI_API_VERSION ?? "2024-12-01-preview";
+
+  if (!apiKey) throw new VisionError("AZURE_OPENAI_API_KEY is required");
+  if (!endpoint) throw new VisionError("AZURE_OPENAI_ENDPOINT is required");
+
+  return new OpenAI({
+    apiKey,
+    baseURL: `${endpoint.replace(/\/+$/, "")}/openai/deployments`,
+    defaultQuery: { "api-version": apiVersion },
+    defaultHeaders: { "api-key": apiKey },
+  });
+}
+
+async function generateVisionOutput(input: GenerateRequest): Promise<VisionOutput> {
+  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
+  if (!deployment) throw new VisionError("AZURE_OPENAI_DEPLOYMENT is required");
+
+  const client = getAzureClient();
   const imageBase64 = normalizeBase64(input.imageBase64);
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro",
-    contents: [
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: imageBase64,
+  const response = await client.chat.completions.create(
+    {
+      model: deployment,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: "high" },
+            },
+            { type: "text", text: buildUserMessage(input) },
+          ],
         },
-      },
-      {
-        text: buildUserMessage(input),
-      },
-    ],
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-      responseSchema: geminiResponseSchema,
-      maxOutputTokens: 6144,
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 6144,
     },
-  });
+    { path: `/${deployment}/chat/completions` },
+  );
 
-  if (!response.text) throw new VisionError("Gemini returned an empty response");
+  const text = response.choices[0]?.message?.content;
+  if (!text) throw new VisionError("Azure GPT-5.1 returned an empty response");
 
   try {
-    return visionOutputSchema.parse(JSON.parse(response.text));
+    return visionOutputSchema.parse(JSON.parse(text));
   } catch (error) {
-    throw new VisionError(error instanceof Error ? error.message : "Invalid Gemini response");
+    throw new VisionError(error instanceof Error ? error.message : "Invalid Azure response");
   }
 }
 
-function getSourceImageMap(sourceImages: SourceImage[]) {
-  return new Map(sourceImages.map((sourceImage) => [sourceImage.id, sourceImage]));
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// BFL EU image generation (optional hero scenes — flux-dev)
+// Currently unused in v1 since all visuals are procedural primitives, but the
+// path is wired for future word-problem hero scenes.
+// ─────────────────────────────────────────────────────────────────────────────
 
-function chooseVisualExercises(vision: VisionOutput, remaining: number) {
-  const sourceImages = getSourceImageMap(vision.sourceImages);
-  let availableVisuals = 0;
+const bflSubmitSchema = z.object({
+  id: z.string().min(1),
+  polling_url: z.string().url(),
+});
 
-  const exercises = vision.exercises.map((exercise) => {
-    if (!exercise.visual || !sourceImages.has(exercise.visual.sourceImageId)) {
-      return { ...exercise, visual: null };
-    }
-    if (availableVisuals >= remaining) {
-      return { ...exercise, visual: null };
-    }
-    availableVisuals += 1;
-    return exercise;
+const bflResultSchema = z.object({
+  status: z.string(),
+  result: z
+    .object({ sample: z.string().url() })
+    .partial()
+    .optional()
+    .nullable(),
+});
+
+async function generateHeroScene(prompt: string): Promise<Buffer> {
+  const apiKey = process.env.BFL_API_KEY;
+  const baseUrl = process.env.BFL_BASE_URL ?? "https://api.eu.bfl.ai";
+  if (!apiKey) throw new ImageEditError("BFL_API_KEY is required");
+
+  const submit = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/flux-dev`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-key": apiKey },
+    body: JSON.stringify({ prompt, width: 1024, height: 1024 }),
   });
+  if (!submit.ok) throw new ImageEditError(`BFL submit failed: ${submit.status}`);
+  const submitted = bflSubmitSchema.parse(await submit.json());
 
-  return { exercises, visualCount: availableVisuals };
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-async function cropSourceImage(photoBuffer: Buffer, source: SourceImage) {
-  const image = sharp(photoBuffer);
-  const metadata = await image.metadata();
-  if (!metadata.width || !metadata.height) {
-    throw new ImageEditError("Unable to read source image dimensions");
+  let resultUrl: string | undefined;
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const poll = await fetch(submitted.polling_url, { headers: { "x-key": apiKey } });
+    if (!poll.ok) continue;
+    const polled = bflResultSchema.parse(await poll.json());
+    if (polled.status === "Ready" && polled.result?.sample) {
+      resultUrl = polled.result.sample;
+      break;
+    }
+    if (polled.status === "Failed" || polled.status === "Error") {
+      throw new ImageEditError(`BFL generation failed: ${polled.status}`);
+    }
   }
+  if (!resultUrl) throw new ImageEditError("BFL generation timed out");
 
-  const [rawLeft, rawTop, rawRight, rawBottom] = source.bbox;
-  const left = Math.floor(clamp(rawLeft, 0, metadata.width - 1));
-  const top = Math.floor(clamp(rawTop, 0, metadata.height - 1));
-  const right = Math.ceil(clamp(rawRight, left + 1, metadata.width));
-  const bottom = Math.ceil(clamp(rawBottom, top + 1, metadata.height));
-
-  return sharp(photoBuffer)
-    .extract({ left, top, width: right - left, height: bottom - top })
-    .png()
-    .toBuffer();
-}
-
-function getR2Client() {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-
-  if (!accountId || !accessKeyId || !secretAccessKey) {
-    throw new ImageEditError("R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY are required");
+  const imageResponse = await fetch(resultUrl);
+  if (!imageResponse.ok) {
+    throw new ImageEditError(`Failed to fetch generated image: ${imageResponse.status}`);
   }
-
-  return new S3Client({
-    region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-    credentials: { accessKeyId, secretAccessKey },
-  });
+  return Buffer.from(await imageResponse.arrayBuffer());
 }
 
-function getR2Bucket() {
-  const bucket = process.env.R2_BUCKET;
-  if (!bucket) throw new ImageEditError("R2_BUCKET is required");
-  return bucket;
+// ─────────────────────────────────────────────────────────────────────────────
+// Local storage on Radom/Hermes (replaces R2)
+// Files served by nginx at $STORAGE_PUBLIC_URL
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getStoragePath() {
+  const path = process.env.STORAGE_PATH;
+  if (!path) throw new ImageEditError("STORAGE_PATH is required");
+  return path;
 }
 
-function getR2PublicUrl(key: string) {
-  const publicUrl = process.env.R2_PUBLIC_URL;
-  if (!publicUrl) throw new ImageEditError("R2_PUBLIC_URL is required");
+function getStoragePublicUrl(key: string) {
+  const publicUrl = process.env.STORAGE_PUBLIC_URL;
+  if (!publicUrl) throw new ImageEditError("STORAGE_PUBLIC_URL is required");
   return `${publicUrl.replace(/\/+$/, "")}/${key}`;
 }
 
-async function objectExists(s3: S3Client, bucket: string, key: string) {
+async function fileExists(path: string) {
   try {
-    await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+    await access(path);
     return true;
   } catch {
     return false;
   }
 }
 
-async function editImageWithFal(cropBuffer: Buffer, editInstruction: string) {
-  const apiKey = process.env.FAL_API_KEY;
-  if (!apiKey) throw new ImageEditError("FAL_API_KEY is required");
+async function storeHeroScene(prompt: string): Promise<string> {
+  const storagePath = getStoragePath();
+  const scenesDir = join(storagePath, "scenes");
+  await mkdir(scenesDir, { recursive: true });
 
-  fal.config({ credentials: apiKey });
-  const cropDataUrl = `data:image/png;base64,${cropBuffer.toString("base64")}`;
+  const hash = createHash("sha256").update(prompt).digest("hex");
+  const key = `scenes/${hash}.png`;
+  const fullPath = join(storagePath, key);
 
-  const result = await withTimeout(
-    fal.subscribe("fal-ai/flux-kontext/dev", {
-      input: {
-        image_url: cropDataUrl,
-        prompt: editInstruction,
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-        output_format: "png",
-      },
-      logs: false,
-    }),
-    30_000,
-    "FLUX image edit timed out",
-  );
-
-  const parsed = falOutputSchema.safeParse(result.data);
-  if (!parsed.success) throw new ImageEditError("Invalid Fal.ai image edit response");
-
-  const imageResponse = await fetch(parsed.data.images[0].url);
-  if (!imageResponse.ok) {
-    throw new ImageEditError(`Failed to fetch edited image: ${imageResponse.status}`);
+  if (await fileExists(fullPath)) {
+    return getStoragePublicUrl(key);
   }
 
-  return Buffer.from(await imageResponse.arrayBuffer());
+  const buffer = await generateHeroScene(prompt);
+  await writeFile(fullPath, buffer);
+  return getStoragePublicUrl(key);
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
-  let timeout: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new ImageEditError(message)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
-async function getEditedImageUrl(
-  photoBuffer: Buffer,
-  source: SourceImage,
-  editInstruction: string,
-) {
-  const cropBuffer = await cropSourceImage(photoBuffer, source);
-  const hash = createHash("sha256")
-    .update(cropBuffer)
-    .update(editInstruction)
-    .digest("hex");
-  const key = `edits/${hash}.png`;
-  const s3 = getR2Client();
-  const bucket = getR2Bucket();
-
-  if (await objectExists(s3, bucket, key)) {
-    return { imageUrl: getR2PublicUrl(key), cacheHit: true };
-  }
-
-  const editedBuffer = await editImageWithFal(cropBuffer, editInstruction);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: editedBuffer,
-      ContentType: "image/png",
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
-
-  return { imageUrl: getR2PublicUrl(key), cacheHit: false };
-}
-
-async function buildExerciseResponses(
-  photoBuffer: Buffer,
-  vision: VisionOutput,
-  selectedExercises: VisionExercise[],
-) {
-  const sourceImages = getSourceImageMap(vision.sourceImages);
-  let cacheHits = 0;
-  let cacheMisses = 0;
-  let imageEditDurationMs = 0;
-
-  const exercises: ExerciseResponse[] = [];
-  for (const exercise of selectedExercises) {
-    const responseExercise = toTextOnlyExercise(exercise);
-    if (exercise.visual) {
-      const source = sourceImages.get(exercise.visual.sourceImageId);
-      if (source) {
-        const startedAt = Date.now();
-        const edited = await getEditedImageUrl(photoBuffer, source, exercise.visual.editInstruction);
-        imageEditDurationMs += Date.now() - startedAt;
-        responseExercise.imageUrl = edited.imageUrl;
-        if (edited.cacheHit) cacheHits += 1;
-        else cacheMisses += 1;
-      }
-    }
-    exercises.push(responseExercise);
-  }
-
-  return { exercises, cacheHits, cacheMisses, imageEditDurationMs };
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Quota helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function buildQuotaExceededResponse(
   vision: VisionOutput,
@@ -632,12 +455,16 @@ function buildQuotaExceededResponse(
 ): QuotaExceededResponse {
   return {
     error: "QUOTA_EXCEEDED",
-    exercises: vision.exercises.map(toTextOnlyExercise),
+    exercises: vision.exercises.map(toExerciseResponse),
     subject: vision.subject,
     topic: vision.topic,
     quota,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route handler
+// ─────────────────────────────────────────────────────────────────────────────
 
 router.post("/generate", async (req, res) => {
   const startedAt = Date.now();
@@ -652,38 +479,32 @@ router.post("/generate", async (req, res) => {
   try {
     const quotaBefore = await getUsageQuota(input.appUserId);
     const remainingBefore = Math.max(0, quotaBefore.limit - quotaBefore.used);
-    const vision = await generateVisionOutput(input);
-    const requestedVisualCount = vision.exercises.filter((exercise) => exercise.visual !== null).length;
 
-    if (requestedVisualCount > 0 && remainingBefore <= 0) {
+    const vision = await generateVisionOutput(input);
+
+    // Reserve one quota slot per worksheet (regardless of exercise count — the
+    // unit-economics tier is worksheets/month, not exercises/month).
+    if (remainingBefore <= 0) {
       res.status(402).json(buildQuotaExceededResponse(vision, quotaBefore));
       return;
     }
 
-    const { exercises: selectedExercises, visualCount } = chooseVisualExercises(vision, remainingBefore);
-    const reservation = await reserveImageQuota(input.appUserId, visualCount);
+    const reservation = await reserveImageQuota(input.appUserId, 1);
     if (!reservation.allowed) {
-      throw new QuotaExceededError("Image quota exceeded");
+      throw new QuotaExceededError("Worksheet quota exceeded");
     }
 
-    const photoBuffer = Buffer.from(normalizeBase64(input.imageBase64), "base64");
-    const { exercises, cacheHits, cacheMisses, imageEditDurationMs } =
-      await buildExerciseResponses(photoBuffer, vision, selectedExercises);
+    const exercises = vision.exercises.map(toExerciseResponse);
     const durationMs = Date.now() - startedAt;
-    const cacheHitRate = cacheHits + cacheMisses === 0 ? 0 : cacheHits / (cacheHits + cacheMisses);
 
     req.log.info(
       {
         appUserId: input.appUserId,
         exerciseCount: exercises.length,
-        visualCount,
-        cacheHits,
-        cacheMisses,
-        cacheHitRate,
-        imageEditDurationMs,
+        visualCount: exercises.filter((e) => e.visual).length,
         durationMs,
       },
-      "Generated exercises",
+      "Generated worksheet",
     );
 
     const response: GenerateResponse = {
@@ -707,8 +528,30 @@ router.post("/generate", async (req, res) => {
       return;
     }
 
-    req.log.error({ error }, "Exercise generation failed");
-    res.status(500).json({ error: "Exercise generation failed" });
+    req.log.error({ error }, "Worksheet generation failed");
+    res.status(500).json({ error: "Worksheet generation failed" });
+  }
+});
+
+// Optional: dedicated endpoint for generating a word-problem hero scene on demand.
+// Mobile calls this lazily when an exercise has a heroScenePrompt the user wants to view.
+router.post("/scene", async (req, res) => {
+  const schema = z.object({
+    prompt: z.string().min(1).max(500),
+    appUserId: z.string().min(1),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "prompt and appUserId are required" });
+    return;
+  }
+
+  try {
+    const imageUrl = await storeHeroScene(parsed.data.prompt);
+    res.json({ imageUrl });
+  } catch (error) {
+    req.log.error({ error }, "Scene generation failed");
+    res.status(500).json({ error: "Scene generation failed" });
   }
 });
 

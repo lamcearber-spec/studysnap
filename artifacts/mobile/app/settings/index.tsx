@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppearance } from "@/context/AppearanceContext";
 import { useProfile } from "@/context/ProfileContext";
@@ -21,7 +21,7 @@ export default function SettingsHubScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const { tier, isSubscribed } = useSubscription();
   const { appearance } = useAppearance();
   const top = isWeb ? 67 : insets.top;
@@ -89,10 +89,23 @@ export default function SettingsHubScreen() {
             onPress={() => goTo("/settings/display")}
             colors={colors}
           />
+          <Separator colors={colors} />
+          <SettingsToggleRow
+            icon="checkmark-done-outline"
+            iconBg="#10B981"
+            label="Auto-grade answers"
+            hint="Mark exercises right or wrong automatically"
+            value={profile?.autoGrade ?? false}
+            onValueChange={async (next) => {
+              if (!isWeb) Haptics.selectionAsync();
+              await updateProfile({ autoGrade: next });
+            }}
+            colors={colors}
+          />
         </View>
 
         <Text style={[styles.version, { color: colors.mutedForeground }]}>
-          BaraBara · Version 1.0
+          MarmotMakesMath · Version 1.0
         </Text>
       </ScrollView>
     </View>
@@ -128,6 +141,44 @@ function SettingsRow({
       </Text>
       <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
     </Pressable>
+  );
+}
+
+function SettingsToggleRow({
+  icon,
+  iconBg,
+  label,
+  hint,
+  value,
+  onValueChange,
+  colors,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  iconBg: string;
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={17} color="#fff" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>{label}</Text>
+        {hint && (
+          <Text style={[styles.rowHint, { color: colors.mutedForeground }]}>{hint}</Text>
+        )}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.border, true: "#10B981" }}
+        thumbColor="#FFFFFF"
+      />
+    </View>
   );
 }
 
@@ -177,6 +228,14 @@ const styles = StyleSheet.create({
   },
   rowLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
   rowValue: { fontSize: 14, fontFamily: "Inter_400Regular", maxWidth: 140 },
+  rowHint: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 12,
+  },
   sep: { height: StyleSheet.hairlineWidth, marginLeft: 56 },
   version: {
     textAlign: "center",

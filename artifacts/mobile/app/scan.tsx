@@ -174,7 +174,7 @@ export default function ScanScreen() {
       return;
     }
     if (!appUserId) {
-      Alert.alert("Almost ready", "BaraBara is still preparing your account. Please try again in a moment.");
+      Alert.alert("Almost ready", "MarmotMakesMath is still preparing your account. Please try again in a moment.");
       return;
     }
     if (!imageUri) return;
@@ -378,7 +378,7 @@ export default function ScanScreen() {
                         Haptics.selectionAsync();
                       }}
                     >
-                      <Text style={styles.chipEmoji}>{s.emoji}</Text>
+                      {/* emoji dropped in MarmotMakesMath rebrand — icons handled by SubjectIcon component */}
                       <Text style={[styles.chipText, { color: selectedSubject === s.id ? "#fff" : colors.foreground }]}>
                         {s.label}
                       </Text>
