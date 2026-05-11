@@ -53,6 +53,26 @@ export const GERMANY_GRADE_GROUPS = [
   },
 ] as const satisfies readonly GradeGroup[];
 
+// UK National Curriculum: Year 1 (age 5-6) through Year 9 (age 13-14).
+// Year 1-2 = Key Stage 1; Year 3-6 = Key Stage 2; Year 7+ = Key Stage 3.
+// Mirrors the canonical Grade 1-8 ages (~6-13) with one-year offset.
+export const UK_GRADE_GROUPS = [
+  {
+    label: "Key Stage 1",
+    grades: ["Year 1", "Year 2"],
+  },
+  {
+    label: "Key Stage 2",
+    grades: ["Year 3", "Year 4", "Year 5", "Year 6"],
+  },
+  {
+    label: "Key Stage 3",
+    grades: ["Year 7", "Year 8"],
+  },
+] as const satisfies readonly GradeGroup[];
+
+// French Éducation Nationale: CP/CE1/CE2/CM1/CM2 = primaire (ages 6-11);
+// 6ème/5ème/4ème = collège (ages 11-14).
 export const FRANCE_GRADE_GROUPS = [
   {
     label: "École primaire",
@@ -60,31 +80,39 @@ export const FRANCE_GRADE_GROUPS = [
   },
   {
     label: "Collège",
-    grades: ["6ème", "5ème"],
+    grades: ["6ème", "5ème", "4ème"],
   },
 ] as const satisfies readonly GradeGroup[];
 
 export function getGradeGroupsForCountry(countryCode?: string): readonly GradeGroup[] {
-  if (countryCode === "DE") return GERMANY_GRADE_GROUPS;
-  if (countryCode === "FR") return FRANCE_GRADE_GROUPS;
-  return GRADE_GROUPS;
+  switch (countryCode) {
+    case "DE":
+      return GERMANY_GRADE_GROUPS;
+    case "GB":
+      return UK_GRADE_GROUPS;
+    case "FR":
+      return FRANCE_GRADE_GROUPS;
+    default:
+      return GRADE_GROUPS;
+  }
 }
 
 export const ALL_GRADES = GRADE_GROUPS.flatMap((g) => g.grades);
 
+// Phosphor icon name strings — resolved at render time by SubjectIcon
 export const SUBJECTS = [
-  { id: "math", label: "Math" },
-  { id: "reading", label: "Reading & Writing" },
-  { id: "science", label: "Science" },
-  { id: "history", label: "History" },
-  { id: "geography", label: "Geography" },
-  { id: "art", label: "Art" },
-  { id: "music", label: "Music" },
-  { id: "computing", label: "Computing" },
-  { id: "pe", label: "Physical Ed." },
-  { id: "social", label: "Social Studies" },
-  { id: "biology", label: "Biology" },
-  { id: "chemistry", label: "Chemistry" },
+  { id: "math", label: "Math", icon: "MathOperations" },
+  { id: "reading", label: "Reading & Writing", icon: "BookOpen" },
+  { id: "science", label: "Science", icon: "Flask" },
+  { id: "history", label: "History", icon: "Bank" },
+  { id: "geography", label: "Geography", icon: "Globe" },
+  { id: "art", label: "Art", icon: "Palette" },
+  { id: "music", label: "Music", icon: "MusicNote" },
+  { id: "computing", label: "Computing", icon: "Code" },
+  { id: "pe", label: "Physical Ed.", icon: "SoccerBall" },
+  { id: "social", label: "Social Studies", icon: "UsersThree" },
+  { id: "biology", label: "Biology", icon: "Plant" },
+  { id: "chemistry", label: "Chemistry", icon: "TestTube" },
 ] as const;
 
 export type SubjectId = (typeof SUBJECTS)[number]["id"];
@@ -104,35 +132,12 @@ const GERMAN_SUBJECT_LABELS: Record<SubjectId, string> = {
   chemistry: "Chemie",
 };
 
-const FRENCH_SUBJECT_LABELS: Record<SubjectId, string> = {
-  math: "Maths",
-  reading: "Lecture & Écriture",
-  science: "Sciences",
-  history: "Histoire",
-  geography: "Géographie",
-  art: "Arts",
-  music: "Musique",
-  computing: "Informatique",
-  pe: "Éducation physique",
-  social: "Éducation civique",
-  biology: "Biologie",
-  chemistry: "Chimie",
-};
-
 export function getSubjectsForLanguage(language?: string) {
-  if (language === "German") {
-    return SUBJECTS.map((subject) => ({
-      ...subject,
-      label: GERMAN_SUBJECT_LABELS[subject.id],
-    }));
-  }
-  if (language === "French") {
-    return SUBJECTS.map((subject) => ({
-      ...subject,
-      label: FRENCH_SUBJECT_LABELS[subject.id],
-    }));
-  }
-  return SUBJECTS;
+  if (language !== "German") return SUBJECTS;
+  return SUBJECTS.map((subject) => ({
+    ...subject,
+    label: GERMAN_SUBJECT_LABELS[subject.id],
+  }));
 }
 
 export const DIFFICULTIES = [
@@ -140,18 +145,21 @@ export const DIFFICULTIES = [
     id: "easier" as const,
     label: "Easier",
     desc: "More hints, simpler questions",
+    icon: "Seedling", // Phosphor — small growing thing
     color: "#22C55E",
   },
   {
     id: "same" as const,
     label: "Same Level",
     desc: "Similar to your classwork",
+    icon: "Plant", // mid-growth
     color: "#F59E0B",
   },
   {
     id: "harder" as const,
     label: "More Challenging",
     desc: "Push beyond your classwork",
+    icon: "Tree", // full grown
     color: "#EF4444",
   },
 ] as const;
@@ -173,66 +181,29 @@ const GERMAN_DIFFICULTY_COPY: Record<Difficulty, { label: string; desc: string }
   },
 };
 
-const FRENCH_DIFFICULTY_COPY: Record<Difficulty, { label: string; desc: string }> = {
-  easier: {
-    label: "Plus facile",
-    desc: "Plus d'indices, questions simplifiées",
-  },
-  same: {
-    label: "Même niveau",
-    desc: "Similaire à ton travail en classe",
-  },
-  harder: {
-    label: "Plus difficile",
-    desc: "Un peu plus exigeant que tes devoirs",
-  },
-};
-
 export function getDifficultiesForLanguage(language?: string) {
-  if (language === "German") {
-    return DIFFICULTIES.map((difficulty) => ({
-      ...difficulty,
-      ...GERMAN_DIFFICULTY_COPY[difficulty.id],
-    }));
-  }
-  if (language === "French") {
-    return DIFFICULTIES.map((difficulty) => ({
-      ...difficulty,
-      ...FRENCH_DIFFICULTY_COPY[difficulty.id],
-    }));
-  }
-  return DIFFICULTIES;
+  if (language !== "German") return DIFFICULTIES;
+  return DIFFICULTIES.map((difficulty) => ({
+    ...difficulty,
+    ...GERMAN_DIFFICULTY_COPY[difficulty.id],
+  }));
 }
 
 export function getSubjectLabel(id: string, language?: string): string {
   return getSubjectsForLanguage(language).find((s) => s.id === id)?.label ?? id;
 }
 
-const SUBJECT_ICON_MAP: Record<string, string> = {
-  math: "MathOperations",
-  reading: "BookOpen",
-  science: "Flask",
-  history: "Bank",
-  geography: "Globe",
-  art: "Palette",
-  music: "MusicNote",
-  computing: "Code",
-  pe: "SoccerBall",
-  social: "UsersThree",
-  biology: "Plant",
-  chemistry: "TestTube",
-};
-
 export function getSubjectIconName(id: string): string {
-  return SUBJECT_ICON_MAP[id] ?? "BookOpen";
+  return SUBJECTS.find((s) => s.id === id)?.icon ?? "BookOpen";
 }
 
-const DIFFICULTY_ICON_MAP: Record<string, string> = {
-  easier: "Leaf",
-  same: "Plant",
-  harder: "Tree",
-};
+// Backward-compat shim during the transition. Returns empty string so any
+// remaining callers render nothing instead of an emoji. Remove after the
+// rebrand sweep is fully merged.
+export function getSubjectEmoji(_id: string): string {
+  return "";
+}
 
 export function getDifficultyIconName(id: string): string {
-  return DIFFICULTY_ICON_MAP[id] ?? "Plant";
+  return DIFFICULTIES.find((d) => d.id === id)?.icon ?? "Plant";
 }

@@ -59,7 +59,7 @@ export default function DisplaySettingsScreen() {
       >
         <Text style={[styles.heading, { color: colors.foreground }]}>Appearance</Text>
         <Text style={[styles.subheading, { color: colors.mutedForeground }]}>
-          Choose how BaraBara looks on your device
+          Choose how MarmotMakesMath looks on your device
         </Text>
 
         <View style={styles.options}>

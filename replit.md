@@ -33,15 +33,12 @@ An iPad/iOS app for elementary and middle school kids to photograph completed cl
 - `artifacts/mobile/app/onboarding/` - 4-step onboarding (country -> grade -> subjects -> difficulty)
 - `artifacts/mobile/app/paywall.tsx` - two-tier subscription paywall screen
 - `artifacts/mobile/app/quota-exceeded.tsx` - quota-exceeded modal with text-only continuation
-- `artifacts/mobile/app/settings/` - settings hub with user, account, display sub-screens
+- `artifacts/mobile/app/settings.tsx` - editable profile settings and plan usage
 - `artifacts/mobile/hooks/useAppReview.ts` - app store review prompt logic (10/20 session thresholds)
 - `artifacts/mobile/lib/revenuecat.tsx` - RevenueCat init, SubscriptionProvider, tier detection, app user ID
 - `artifacts/mobile/context/ProfileContext.tsx` - AsyncStorage-backed user profile
 - `artifacts/mobile/context/SessionContext.tsx` - AsyncStorage-backed session state
-- `artifacts/mobile/constants/data.ts` - countries (US, GB, DE, FR), grades, subjects, difficulties
-- `artifacts/mobile/components/Mascot.tsx` - capybara mascot component
-- `artifacts/mobile/components/SubjectIcon.tsx` - Phosphor icon per subject
-- `artifacts/mobile/components/DifficultyIcon.tsx` - Phosphor icon per difficulty
+- `artifacts/mobile/constants/data.ts` - countries, grades, subjects, difficulties
 - `scripts/src/seedRevenueCat.ts` - seed script for RevenueCat project/products/entitlements
 
 ## Architecture decisions
@@ -76,7 +73,6 @@ An iPad/iOS app for elementary and middle school kids to photograph completed cl
 - RevenueCat test store prices are immutable once set; free trials are not supported in test store
 - `initializeRevenueCat()` is called at module level in `_layout.tsx` (outside any component)
 - R2 bucket should not be listable. Public access should be through object URLs only.
-- `phosphor-react-native` is installed in `artifacts/mobile` for Phosphor icons
 
 ## Pointers
 

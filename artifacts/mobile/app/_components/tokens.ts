@@ -1,6 +1,6 @@
-// BaraBara take — palette + type tokens grounded in the market-research-driven
+// MarmotMakesMath take — palette + type tokens grounded in the market-research-driven
 // "Duolingo structure with Khan-Kids warmth" recipe. Six colors, one job each.
-// Reference: radom-vault/projects/designproject/barabara-market-research.md
+// Reference: radom-vault/projects/designproject/marmot-market-research.md
 
 export const C = {
   // SURFACES — cream-warm not blue-white. Reads "school-friendly" not "gym-app".
@@ -17,8 +17,8 @@ export const C = {
   // BORDERS
   hairline: "#E5DDC9",         // hairline on cream surfaces
 
-  // PRIMARY — Capybara Brown (the brand)
-  primary: "#A76A4A",          // Capybara Brown
+  // PRIMARY — Marmot Brown (the brand)
+  primary: "#A76A4A",          // Marmot Brown
   primaryDark: "#8A5538",      // pressed / shadow tone
   primaryShadow: "#6B3F25",    // 3D button bottom-edge ledge
   primaryFixedDim: "#D6A98C",  // light primary tint

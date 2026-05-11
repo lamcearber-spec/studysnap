@@ -64,6 +64,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" />
         <Stack.Screen name="scan" />
         <Stack.Screen name="exercises/[id]" />
+        <Stack.Screen name="worksheets/index" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="settings" options={{ animation: "slide_from_right" }} />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="paywall" options={{ animation: "slide_from_bottom" }} />

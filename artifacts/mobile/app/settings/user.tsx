@@ -23,8 +23,6 @@ import {
 } from "@/constants/data";
 import { useProfile } from "@/context/ProfileContext";
 import { useColors } from "@/hooks/useColors";
-import { DifficultyIcon } from "@/components/DifficultyIcon";
-import { SubjectIcon } from "@/components/SubjectIcon";
 
 const isWeb = Platform.OS === "web";
 
@@ -285,7 +283,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => selectDifficulty(d.id)}
                 >
-                  <DifficultyIcon id={d.id} size={20} color={isSelected ? d.color : colors.mutedForeground} />
+                  {/* emoji dropped in rebrand — DifficultyIcon handles it */}
                   <View style={styles.diffText}>
                     <Text style={[styles.diffLabel, { color: isSelected ? d.color : colors.foreground }]}>
                       {d.label}
@@ -324,7 +322,7 @@ export default function UserSettingsScreen() {
                   ]}
                   onPress={() => toggleSubject(subject.id)}
                 >
-                  <SubjectIcon id={subject.id} size={20} color={isSelected ? "#fff" : colors.foreground} />
+                  {/* emoji dropped in rebrand — SubjectIcon handles it */}
                   <Text
                     style={[styles.subjectLabel, { color: isSelected ? "#fff" : colors.foreground }]}
                     numberOfLines={2}

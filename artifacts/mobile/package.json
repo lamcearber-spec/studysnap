@@ -17,6 +17,7 @@
     "@expo/ngrok": "^4.1.0",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@shopify/react-native-skia": "2.2.12",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "catalog:",
     "@types/react": "~19.1.10",
@@ -36,12 +37,15 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",
     "expo-location": "~19.0.8",
+    "expo-print": "~15.0.8",
     "expo-router": "~6.0.17",
+    "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
+    "phosphor-react-native": "^2.3.1",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-native": "0.81.5",
@@ -58,11 +62,8 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@expo-google-fonts/libre-caslon-text": "^0.4.0",
-    "@expo-google-fonts/newsreader": "^0.4.1",
     "expo-file-system": "~19.0.22",
     "expo-store-review": "~9.0.9",
-    "phosphor-react-native": "^3.0.6",
     "react-native-purchases": "9.7.2"
   }
 }

@@ -11,7 +11,11 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { C, F } from "@/app/_components/tokens";
-import { Exercise, ExerciseStatus, useSession } from "@/context/SessionContext";
+import { Exercise, ExerciseStatus, UserAnswer, useSession } from "@/context/SessionContext";
+import { useProfile } from "@/context/ProfileContext";
+import { VisualRenderer } from "@/components/math-visuals/VisualRenderer";
+import { AnswerInput } from "@/components/AnswerInput";
+import { gradeAnswer, supportsAutoGrade } from "@/lib/grade";
 
 type ExerciseCardProps = {
   exercise: Exercise;
@@ -149,11 +153,14 @@ function AnswerReveal({ exercise }: { exercise: Exercise }) {
 }
 
 export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCardProps) {
-  const { setExerciseStatus } = useSession();
+  const { setExerciseStatus, setExerciseAnswer } = useSession();
+  const { profile } = useProfile();
+  const autoGrade = profile?.autoGrade ?? false;
   const [showAnswer, setShowAnswer] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const status = exercise.status ?? "pending";
   const cardOpacity = useSharedValue(0);
+  const canAutoGrade = autoGrade && supportsAutoGrade(exercise);
 
   useEffect(() => {
     cardOpacity.value = withTiming(1, { duration: 260 + index * 35 });
@@ -167,6 +174,17 @@ export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCard
     await setExerciseStatus(sessionId, exercise.id, updated);
   };
 
+  const handleAnswerChange = async (answer: UserAnswer | undefined) => {
+    await setExerciseAnswer(sessionId, exercise.id, answer);
+  };
+
+  const handleSubmit = async () => {
+    const result = gradeAnswer(exercise);
+    notifyStatus(result);
+    await setExerciseStatus(sessionId, exercise.id, result);
+    setShowAnswer(true);
+  };
+
   return (
     <Animated.View style={[styles.card, cardStyle]}>
       <View style={styles.topRow}>
@@ -178,7 +196,13 @@ export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCard
 
       <Text style={styles.question}>{exercise.question}</Text>
 
-      {exercise.imageUrl && (
+      {exercise.visual && (
+        <View style={styles.visualWrap}>
+          <VisualRenderer visual={exercise.visual} />
+        </View>
+      )}
+
+      {exercise.imageUrl && !exercise.visual && (
         <View style={styles.visualWrap}>
           <Image
             source={{ uri: exercise.imageUrl }}
@@ -188,6 +212,17 @@ export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCard
             onLoadEnd={() => setImageLoaded(true)}
           />
           {!imageLoaded && <View style={styles.visualSkeleton} />}
+        </View>
+      )}
+
+      {exercise.cardType && (
+        <View style={styles.inputWrap}>
+          <AnswerInput
+            exercise={exercise}
+            onChange={handleAnswerChange}
+            onSubmit={canAutoGrade ? handleSubmit : undefined}
+            disabled={status !== "pending"}
+          />
         </View>
       )}
 
@@ -207,18 +242,20 @@ export function ExerciseCard({ exercise, sessionId, index, total }: ExerciseCard
         <AnswerReveal exercise={exercise} />
       )}
 
-      <View style={styles.gradeRow}>
-        <GradeButton
-          kind="correct"
-          active={status === "correct"}
-          onPress={() => { setStatus("correct"); }}
-        />
-        <GradeButton
-          kind="wrong"
-          active={status === "wrong"}
-          onPress={() => { setStatus("wrong"); }}
-        />
-      </View>
+      {!canAutoGrade && (
+        <View style={styles.gradeRow}>
+          <GradeButton
+            kind="correct"
+            active={status === "correct"}
+            onPress={() => { setStatus("correct"); }}
+          />
+          <GradeButton
+            kind="wrong"
+            active={status === "wrong"}
+            onPress={() => { setStatus("wrong"); }}
+          />
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -274,6 +311,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: C.surfaceLow,
     opacity: 0.82,
+  },
+  inputWrap: {
+    gap: 8,
   },
   showAnswerButton: {
     alignSelf: "flex-start",

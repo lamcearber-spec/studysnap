@@ -26,7 +26,6 @@ import { useProfile } from "@/context/ProfileContext";
 import { maybeRequestReview } from "@/hooks/useAppReview";
 import { useColors } from "@/hooks/useColors";
 import { getGradeGroupsForCountry, getSubjectsForLanguage } from "@/constants/data";
-import { SubjectIcon } from "@/components/SubjectIcon";
 import { hasFreeScanAvailableToday } from "@/lib/freeScans";
 import { useSubscription } from "@/lib/revenuecat";
 import type { GenerateExercisesResponse, QuotaExceededError } from "@workspace/api-client-react";
@@ -175,7 +174,7 @@ export default function ScanScreen() {
       return;
     }
     if (!appUserId) {
-      Alert.alert("Almost ready", "BaraBara is still preparing your account. Please try again in a moment.");
+      Alert.alert("Almost ready", "MarmotMakesMath is still preparing your account. Please try again in a moment.");
       return;
     }
     if (!imageUri) return;
@@ -379,7 +378,7 @@ export default function ScanScreen() {
                         Haptics.selectionAsync();
                       }}
                     >
-                      <SubjectIcon id={s.id} size={16} color={selectedSubject === s.id ? "#fff" : colors.foreground} />
+                      {/* emoji dropped in MarmotMakesMath rebrand — icons handled by SubjectIcon component */}
                       <Text style={[styles.chipText, { color: selectedSubject === s.id ? "#fff" : colors.foreground }]}>
                         {s.label}
                       </Text>

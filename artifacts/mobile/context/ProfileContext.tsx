@@ -10,6 +10,7 @@ export interface UserProfile {
   grade: string;
   subjects: string[];
   difficulty: Difficulty;
+  autoGrade?: boolean;
 }
 
 interface ProfileContextType {
@@ -21,7 +22,7 @@ interface ProfileContextType {
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
-// Legacy AsyncStorage key — preserved across the StudySnap → BaraBara rebrand
+// Legacy AsyncStorage key — preserved across the StudySnap → MarmotMakesMath rebrand
 // so existing users' on-device profile survives the migration.
 const STORAGE_KEY = "@studysnap_profile";
 

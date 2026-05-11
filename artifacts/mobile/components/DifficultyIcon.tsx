@@ -1,5 +1,5 @@
 import React from "react";
-import { Leaf, Plant, Tree } from "phosphor-react-native";
+import { Plant, Leaf, Tree } from "phosphor-react-native";
 
 import { getDifficultyIconName } from "@/constants/data";
 
@@ -9,7 +9,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; color?: stri
   Tree,
 };
 
-// BaraBara default — duotone weight matches the SubjectIcon family.
+// MarmotMakesMath default — duotone weight matches the SubjectIcon family.
 export function DifficultyIcon({
   id,
   size = 18,
